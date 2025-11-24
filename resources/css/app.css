@@ -1,0 +1,770 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+:root {
+    --bg-dark: #050915;
+    --bg-card: #0f172a;
+    --bg-panel: #111c31;
+    --bg-accent: #1d4ed8;
+    --bg-accent-strong: #2563eb;
+    --text-primary: #f8fafc;
+    --text-muted: #cbd5f5;
+    --success: #22c55e;
+    --danger: #f43f5e;
+    --warning: #fbbf24;
+    --border-soft: rgba(255, 255, 255, 0.08);
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: var(--font-sans);
+    background: radial-gradient(circle at 15% 20%, rgba(59, 130, 246, 0.08), transparent 45%),
+        radial-gradient(circle at 85% 30%, rgba(236, 72, 153, 0.08), transparent 40%), var(--bg-dark);
+    color: var(--text-primary);
+    min-height: 100vh;
+}
+
+html[data-theme='light'] body {
+    --bg-dark: #f5f6fb;
+    --bg-card: #ffffff;
+    --bg-panel: #f7f8ff;
+    --bg-accent: #2563eb;
+    --bg-accent-strong: #1d4ed8;
+    --text-primary: #111927;
+    --text-muted: #4c566a;
+    --border-soft: rgba(15, 23, 42, 0.08);
+    background: linear-gradient(180deg, #f8fbff, #e0e7ff);
+    color: #0f172a;
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+button {
+    font-family: inherit;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+    outline: 2px solid rgba(59, 130, 246, 0.6);
+    outline-offset: 2px;
+}
+
+.auth-body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 2rem;
+}
+
+.auth-card {
+    background: rgba(15, 23, 42, 0.92);
+    border: 1px solid var(--border-soft);
+    border-radius: 1.5rem;
+    padding: 2.5rem;
+    max-width: 420px;
+    width: 100%;
+    box-shadow: 0 20px 60px rgba(15, 23, 42, 0.7);
+}
+
+.auth-card__header h1 {
+    margin: 0;
+    font-size: 1.75rem;
+}
+
+.auth-card__header p {
+    color: var(--text-muted);
+    margin-top: 0.5rem;
+    line-height: 1.5;
+}
+
+.auth-form {
+    margin-top: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.auth-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-size: 0.95rem;
+    color: var(--text-muted);
+}
+
+.auth-field input {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid var(--border-soft);
+    border-radius: 0.9rem;
+    padding: 0.85rem 1rem;
+    color: var(--text-primary);
+}
+
+.auth-error {
+    color: var(--danger);
+    font-size: 0.9rem;
+}
+
+.remember-field {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.remember-field input {
+    width: 18px;
+    height: 18px;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--bg-accent), var(--bg-accent-strong));
+    color: #fff;
+    padding: 0.9rem 1.2rem;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 25px rgba(37, 99, 235, 0.4);
+}
+
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+    padding: 0.7rem 1.1rem;
+    border-radius: 0.9rem;
+    font-weight: 600;
+}
+
+.btn-danger {
+    background: rgba(244, 63, 94, 0.2);
+    color: var(--danger);
+    padding: 0.7rem 1.1rem;
+    border-radius: 0.9rem;
+    font-weight: 600;
+}
+
+.btn-circle {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+}
+
+.btn-circle.active {
+    background: var(--bg-accent);
+}
+
+.button-with-icon {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-weight: 600;
+}
+
+.button-with-icon .icon {
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.button-with-icon .icon svg {
+    width: 100%;
+    height: 100%;
+    fill: currentColor;
+}
+
+.btn-call {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    color: #03210f;
+    border-radius: 999px;
+    padding: 0.85rem 1.4rem;
+    box-shadow: 0 15px 30px rgba(34, 197, 94, 0.35);
+    font-size: 1rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.btn-call:hover {
+    transform: translateY(-2px);
+}
+
+.btn-hang {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: #fff5f5;
+    border-radius: 999px;
+    padding: 0.85rem 1.4rem;
+    box-shadow: 0 15px 35px rgba(239, 68, 68, 0.4);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
+
+.btn-hang:disabled {
+    opacity: 0.5;
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+.btn-feature {
+    border-radius: 1rem;
+    padding: 0.85rem 1rem;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+    justify-content: center;
+    text-align: left;
+}
+
+.btn-feature .label {
+    font-weight: 600;
+}
+
+.btn-feature.active {
+    background: var(--bg-accent);
+    box-shadow: 0 12px 25px rgba(37, 99, 235, 0.35);
+}
+
+.btn-feature.danger {
+    background: rgba(239, 68, 68, 0.18);
+    color: #fecaca;
+}
+
+.auth-footer {
+    margin-top: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.95rem;
+    color: var(--text-muted);
+}
+
+.status-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-flex;
+    background: var(--warning);
+    box-shadow: 0 0 12px rgba(251, 191, 36, 0.7);
+}
+
+.status-dot--idle {
+    background: var(--warning);
+}
+
+.status-dot--online {
+    background: var(--success);
+    box-shadow: 0 0 12px rgba(34, 197, 94, 0.6);
+}
+
+.status-dot--live {
+    background: #ef4444;
+    box-shadow: 0 0 14px rgba(239, 68, 68, 0.8);
+}
+
+#call-app {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem 4rem;
+}
+
+.call-shell {
+    background: rgba(15, 23, 42, 0.95);
+    border-radius: 1.8rem;
+    border: 1px solid var(--border-soft);
+    box-shadow: 0 30px 60px rgba(3, 7, 18, 0.7);
+    padding: 2rem;
+}
+
+.call-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: center;
+}
+
+.login-state {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.login-state h2 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.login-state small {
+    color: var(--text-muted);
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.call-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+    gap: 1.8rem;
+    margin-top: 2rem;
+}
+
+.video-panel {
+    background: var(--bg-panel);
+    border-radius: 1.5rem;
+    padding: 1.5rem;
+    border: 1px solid var(--border-soft);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.video-wrapper {
+    position: relative;
+    border-radius: 1.3rem;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-soft);
+}
+
+.video-wrapper video {
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: #000;
+}
+
+.video-label {
+    position: absolute;
+    bottom: 1rem;
+    left: 1rem;
+    padding: 0.4rem 0.9rem;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.75);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.controls-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.panel-card {
+    background: var(--bg-panel);
+    border-radius: 1.5rem;
+    border: 1px solid var(--border-soft);
+    padding: 1.25rem;
+}
+
+.panel-card h3 {
+    margin: 0 0 0.2rem;
+    font-size: 1.2rem;
+}
+
+.panel-card p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+.input-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    margin-top: 1rem;
+}
+
+.input-stack label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.input-stack input {
+    border: 1px solid var(--border-soft);
+    border-radius: 1rem;
+    background: rgba(7, 17, 34, 0.7);
+    color: var(--text-primary);
+    padding: 0.9rem 1rem;
+    font-size: 1rem;
+}
+
+.button-row {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.call-code-display {
+    margin-top: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: 'JetBrains Mono', 'SFMono-Regular', monospace;
+    color: var(--text-muted);
+}
+
+.tag {
+    background: linear-gradient(120deg, rgba(59, 130, 246, 0.25), rgba(236, 72, 153, 0.25));
+    border-radius: 0.75rem;
+    padding: 0.35rem 0.8rem;
+    font-size: 0.85rem;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.call-chips {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.8rem;
+    margin-top: 1rem;
+}
+
+.chip {
+    padding: 0.9rem 1rem;
+    border-radius: 1.1rem;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(15, 23, 42, 0.8);
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+}
+
+.chip strong {
+    font-size: 1.05rem;
+    letter-spacing: normal;
+}
+
+.chip--teal {
+    background: radial-gradient(circle at 10% 10%, rgba(20, 184, 166, 0.25), rgba(15, 23, 42, 0.8));
+    border-color: rgba(20, 184, 166, 0.4);
+}
+
+.chip--purple {
+    background: radial-gradient(circle at 20% 20%, rgba(129, 140, 248, 0.25), rgba(15, 23, 42, 0.8));
+    border-color: rgba(129, 140, 248, 0.4);
+}
+
+.chip--pink {
+    background: radial-gradient(circle at 15% 20%, rgba(244, 114, 182, 0.25), rgba(15, 23, 42, 0.8));
+    border-color: rgba(244, 114, 182, 0.4);
+}
+
+.dialpad-card {
+    position: relative;
+}
+
+.dialpad-toggle {
+    margin-top: 1rem;
+    border-radius: 1rem;
+    padding: 0.7rem 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-primary);
+    width: 100%;
+    justify-content: center;
+}
+
+html[data-theme='light'] .dialpad-toggle {
+    background: rgba(37, 99, 235, 0.08);
+    border-color: rgba(37, 99, 235, 0.2);
+    color: #0f172a;
+}
+
+.dialpad-dropdown {
+    margin-top: 1rem;
+    border-radius: 1.5rem;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: rgba(10, 15, 28, 0.95);
+    box-shadow: 0 25px 60px rgba(2, 6, 23, 0.75);
+    padding: 1rem;
+    display: none;
+}
+
+.dialpad-dropdown.open {
+    display: block;
+    animation: fadeIn 0.2s ease;
+}
+
+html[data-theme='light'] .dialpad-dropdown {
+    background: #ffffff;
+    border-color: rgba(15, 23, 42, 0.08);
+    box-shadow: 0 20px 45px rgba(15, 23, 42, 0.2);
+}
+
+.dialpad-dropdown::before {
+    content: '';
+    position: absolute;
+    top: calc(100% - 1px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40%;
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.25);
+    display: none;
+}
+
+.dialpad-select {
+    margin-top: 1rem;
+    width: 100%;
+    border-radius: 1.2rem;
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    background: rgba(8, 13, 26, 0.9);
+    color: var(--text-primary);
+    padding: 0.85rem 1rem;
+    font-size: 1.1rem;
+    appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, rgba(255, 255, 255, 0.5) 50%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.5) 50%, transparent 50%);
+    background-position: calc(100% - 25px) calc(50% - 6px), calc(100% - 15px) calc(50% - 6px);
+    background-size: 10px 10px, 10px 10px;
+    background-repeat: no-repeat;
+}
+
+.dialpad-select option {
+    font-size: 1rem;
+    padding: 0.4rem;
+}
+
+.dialpad-select:focus {
+    outline: none;
+    border-color: rgba(59, 130, 246, 0.7);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.dialpad-actions {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: flex-end;
+}
+
+html[data-theme='light'] .dialpad-select {
+    background: #ffffff;
+    color: #0f172a;
+    border-color: rgba(37, 99, 235, 0.3);
+    background-image: linear-gradient(45deg, transparent 50%, rgba(37, 99, 235, 0.5) 50%),
+        linear-gradient(135deg, rgba(37, 99, 235, 0.5) 50%, transparent 50%);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.theme-toggle {
+    border-radius: 999px;
+    padding: 0.6rem 1rem;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.theme-toggle .label {
+    font-weight: 600;
+}
+
+html[data-theme='light'] .theme-toggle {
+    background: rgba(37, 99, 235, 0.08);
+    color: #1e293b;
+    border-color: rgba(37, 99, 235, 0.2);
+}
+
+html[data-theme='light'] .call-shell {
+    background: rgba(255, 255, 255, 0.92);
+    border-color: rgba(15, 23, 42, 0.08);
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.15);
+}
+
+html[data-theme='light'] .panel-card,
+html[data-theme='light'] .video-panel {
+    background: #fff;
+    border-color: rgba(15, 23, 42, 0.08);
+}
+
+html[data-theme='light'] .tag {
+    border-color: rgba(37, 99, 235, 0.2);
+}
+
+html[data-theme='light'] .chip {
+    border-color: rgba(15, 23, 42, 0.1);
+}
+
+.action-buttons {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.8rem;
+}
+
+.status-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.8rem 1rem;
+    border-radius: 1rem;
+    border: 1px dashed rgba(148, 163, 184, 0.4);
+    margin-top: 0.5rem;
+    color: var(--text-muted);
+}
+
+.status-bar strong {
+    color: var(--text-primary);
+}
+
+.recording-led {
+    display: inline-flex;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--danger);
+    box-shadow: 0 0 12px rgba(244, 63, 94, 0.7);
+    margin-right: 0.35rem;
+}
+
+.call-log {
+    max-height: 160px;
+    overflow-y: auto;
+    margin-top: 0.6rem;
+    font-size: 0.92rem;
+    color: var(--text-muted);
+}
+
+.call-log p {
+    margin: 0.2rem 0;
+}
+
+.call-log strong {
+    color: var(--text-primary);
+}
+
+@media (max-width: 960px) {
+    .call-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .call-shell {
+        padding: 1.25rem;
+    }
+
+    .call-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .action-buttons {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+.dialpad-select {
+    margin-top: 1rem;
+    width: 100%;
+    border-radius: 1.2rem;
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    background: rgba(8, 13, 26, 0.9);
+    color: var(--text-primary);
+    padding: 0.85rem 1rem;
+    font-size: 1.1rem;
+    appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, rgba(255, 255, 255, 0.5) 50%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.5) 50%, transparent 50%);
+    background-position: calc(100% - 25px) calc(50% - 6px), calc(100% - 15px) calc(50% - 6px);
+    background-size: 10px 10px, 10px 10px;
+    background-repeat: no-repeat;
+}
+
+.dialpad-select option {
+    font-size: 1rem;
+    padding: 0.4rem;
+}
+
+.dialpad-select:focus {
+    outline: none;
+    border-color: rgba(59, 130, 246, 0.7);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.dialpad-actions {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: flex-end;
+}
+.dialpad-actions {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: flex-end;
+}
+
+html[data-theme='light'] .dialpad-select {
+    background: #ffffff;
+    color: #0f172a;
+    border-color: rgba(37, 99, 235, 0.3);
+    background-image: linear-gradient(45deg, transparent 50%, rgba(37, 99, 235, 0.5) 50%),
+        linear-gradient(135deg, rgba(37, 99, 235, 0.5) 50%, transparent 50%);
+}
