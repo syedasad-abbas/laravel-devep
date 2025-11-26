@@ -24,6 +24,21 @@ spec:
               value: production
             - name: APP_DEBUG
               value: 'false'
+            - name: DB_CONNECTION
+              value: mysql
+            - name: DB_HOST
+              value: mysql.jambonz
+            - name: DB_PORT
+              value: '3306'
+            - name: DB_DATABASE
+              value: jambones
+            - name: DB_USERNAME
+              value: jambones
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: jambonz-secrets
+                  key: MYSQL_PASSWORD
             - name: MYSQL_PASSWORD
               valueFrom:
                 secretKeyRef:
