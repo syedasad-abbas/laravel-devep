@@ -126,6 +126,14 @@
                                 </span>
                                 <span class="label">Demo</span>
                             </button>
+                            <button type="button" class="toolbar-btn" id="referBtn" disabled>
+                                <span class="icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24">
+                                        <path d="M8.59 5.59 13.17 10H4a1 1 0 0 0 0 2h9.17l-4.58 4.41A1 1 0 0 0 10 18a1 1 0 0 0 .7-.29l6-6a1 1 0 0 0 0-1.42l-6-6A1 1 0 0 0 8.59 5.59Z" />
+                                    </svg>
+                                </span>
+                                <span class="label">Transfer</span>
+                            </button>
                             <button type="button" class="toolbar-btn toolbar-btn--danger" id="hangupBtn">
                                 <span class="icon" aria-hidden="true">
                                     <svg viewBox="0 0 24 24">

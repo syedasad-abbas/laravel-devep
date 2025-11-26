@@ -38,12 +38,14 @@ const els = {
     statusPill: document.getElementById('statusPill'),
     callHistory: document.getElementById('callHistory'),
     clearHistoryBtn: document.getElementById('clearHistoryBtn'),
+    joinCodeInput: document.getElementById('joinCodeInput'),
     userPresenceIndicator: document.getElementById('userPresenceIndicator'),
     userPresenceText: document.getElementById('userPresenceText'),
     logoutForm: document.getElementById('logoutForm'),
     sipStatusIndicator: document.getElementById('sipStatusIndicator'),
     sipStatusText: document.getElementById('sipStatusText'),
     sipStatusMeta: document.getElementById('sipStatusMeta'),
+    referBtn: document.getElementById('referBtn'),
 };
 
 const state = {
@@ -72,6 +74,7 @@ const state = {
     isSipCall: false,
     sipTransportState: 'disconnected',
     sipStatus: 'offline',
+    sipReferInProgress: false,
 };
 
 const iceServers = [
@@ -364,6 +367,30 @@ function setUserPresence(state = 'online') {
     }
 }
 
+function setReferButtonState(enabled) {
+    if (els.referBtn) {
+        els.referBtn.disabled = !enabled;
+    }
+}
+
+function buildReferTarget(rawValue) {
+    if (!rawValue) {
+        return null;
+    }
+    const trimmed = rawValue.trim();
+    if (!trimmed) {
+        return null;
+    }
+    if (/^sips?:/i.test(trimmed)) {
+        return trimmed;
+    }
+    const referDomain = sipConfig?.referDomain || sipConfig?.domain || '';
+    if (referDomain) {
+        return `sip:${trimmed}@${referDomain}`;
+    }
+    return `sip:${trimmed}`;
+}
+
 function updateSipStatus(status = 'offline', metaText = '') {
     if (!els.sipStatusIndicator || !els.sipStatusText) {
         return;
@@ -408,6 +435,7 @@ async function initSipStack() {
     state.sipClient.on('transport', handleSipTransport);
     state.sipClient.on('invite', handleSipInvite);
     state.sipClient.on('sessionState', handleSipSessionState);
+    state.sipClient.on('refer', handleSipRefer);
     state.sipClient.on('error', () => {
         logEvent('SIP stack error');
         updateSipStatus('error', 'SIP stack error');
@@ -489,15 +517,49 @@ function handleSipSessionState(event) {
             attachSipMedia(event.invitation);
             updateCallStatus('Live SIP call', `Connected to ${state.currentTarget}`, 'active');
             logEvent('SIP call established');
+            setReferButtonState(true);
             break;
         case 'terminated':
             logEvent('SIP call ended');
             updateCallStatus('SIP call ended', '', 'ended');
             resetSipSession();
+            setReferButtonState(false);
             break;
         default:
             break;
     }
+}
+
+function handleSipRefer(event) {
+    if (!event?.referral) {
+        return;
+    }
+    const referTo = event.referral.referTo?.uri?.toString?.() || 'unknown target';
+    logEvent(`SIP REFER received: ${referTo}`);
+    updateCallStatus('Transfer requested', `Following REFER to ${referTo}`, 'pending');
+
+    const inviterOptions = {
+        sessionDescriptionHandlerOptions: {
+            constraints: {
+                audio: true,
+                video: true,
+            },
+            peerConnectionConfiguration: {
+                iceServers,
+            },
+        },
+    };
+
+    event.referral
+        .accept()
+        .then(() => event.referral.makeInviter(inviterOptions).invite())
+        .then(() => {
+            logEvent('REFER followed successfully');
+        })
+        .catch((error) => {
+            console.error('Unable to follow REFER', error);
+            updateCallStatus('Transfer failed', `Unable to follow REFER to ${referTo}`, 'pending');
+        });
 }
 
 async function answerSipInvitation(invitation) {
@@ -579,6 +641,42 @@ async function terminateSipSession() {
         console.warn('SIP hangup failed', error);
     } finally {
         resetSipSession(false);
+    }
+}
+
+async function sendSipRefer() {
+    if (!state.sipSession) {
+        updateCallStatus('No SIP session', 'Establish SIP call before transferring');
+        return;
+    }
+    const referTarget = buildReferTarget(els.dialInput.value);
+    if (!referTarget) {
+        updateCallStatus('Refer target required', 'Provide a dial target before transferring');
+        return;
+    }
+
+    try {
+        state.sipReferInProgress = true;
+        setReferButtonState(false);
+        updateCallStatus('Transferring call', `REFER to ${referTarget}`, 'pending');
+        await state.sipSession.refer(referTarget, {
+            sessionDescriptionHandlerOptions: {
+                constraints: {
+                    audio: true,
+                    video: true,
+                },
+                peerConnectionConfiguration: {
+                    iceServers,
+                },
+            },
+        });
+        logEvent(`Sent SIP REFER to ${referTarget}`);
+    } catch (error) {
+        console.error('SIP REFER failed', error);
+        updateCallStatus('Transfer failed', 'REFER request rejected or failed');
+    } finally {
+        state.sipReferInProgress = false;
+        setReferButtonState(Boolean(state.sipSession));
     }
 }
 
@@ -759,6 +857,10 @@ async function startCall() {
 async function joinCall() {
     if (state.isSipCall) {
         updateCallStatus('SIP call active', 'Hang up before joining another call');
+        return;
+    }
+    if (!els.joinCodeInput) {
+        updateCallStatus('Join disabled', 'No join input available');
         return;
     }
     const code = clampCode(els.joinCodeInput.value || '');
@@ -958,7 +1060,9 @@ function resetSession(clearCode = true) {
         setCallCode(null);
     }
 
-    els.joinCodeInput.value = '';
+    if (els.joinCodeInput) {
+        els.joinCodeInput.value = '';
+    }
     els.hangupBtn.disabled = true;
     setSessionStateLabel('Idle');
     if (!state.isRecording) {
@@ -967,6 +1071,7 @@ function resetSession(clearCode = true) {
     if (!els.dialInput.value.trim()) {
         setDialTargetLabel('None');
     }
+    setReferButtonState(false);
 
     if (state.localStream) {
         els.localVideo.srcObject = state.localStream;
@@ -1249,6 +1354,7 @@ els.copyCodeBtn?.addEventListener('click', copyCallCode);
 els.themeToggleBtn?.addEventListener('click', toggleTheme);
 els.demoCallBtn?.addEventListener('click', startDemoCall);
 els.clearHistoryBtn?.addEventListener('click', clearCallHistory);
+els.referBtn?.addEventListener('click', sendSipRefer);
 initDialpad();
 initLocalMedia().catch(() => {
     // permission denied handled in initLocalMedia
@@ -1259,6 +1365,7 @@ setRecordingStateLabel('Off');
 setSessionStateLabel('Idle');
 initTheme();
 setUserPresence('online');
+setReferButtonState(false);
 if (hasSipStack()) {
     initSipStack();
 } else {
