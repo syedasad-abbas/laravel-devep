@@ -1,4 +1,5 @@
-import axios from 'axios';
+import SignalingClient from './signaling';
+import SipClient from './sip-client';
 
 (() => {
 const appRoot = document.getElementById('call-app');
@@ -7,10 +8,11 @@ if (!appRoot) {
     return;
 }
 
+window.__CALL_APP_ACTIVE__ = true;
+
 const els = {
     dialInput: document.getElementById('dialInput'),
     startCallBtn: document.getElementById('startCallBtn'),
-    joinCodeInput: document.getElementById('joinCodeInput'),
     hangupBtn: document.getElementById('hangupBtn'),
     callCodeDisplay: document.getElementById('callCodeDisplay'),
     copyCodeBtn: document.getElementById('copyCodeBtn'),
@@ -33,13 +35,21 @@ const els = {
     recordingStateLabel: document.getElementById('recordingStateLabel'),
     themeToggleBtn: document.getElementById('themeToggleBtn'),
     demoCallBtn: document.getElementById('demoCallBtn'),
+    statusPill: document.getElementById('statusPill'),
+    callHistory: document.getElementById('callHistory'),
+    clearHistoryBtn: document.getElementById('clearHistoryBtn'),
+    userPresenceIndicator: document.getElementById('userPresenceIndicator'),
+    userPresenceText: document.getElementById('userPresenceText'),
+    logoutForm: document.getElementById('logoutForm'),
+    sipStatusIndicator: document.getElementById('sipStatusIndicator'),
+    sipStatusText: document.getElementById('sipStatusText'),
+    sipStatusMeta: document.getElementById('sipStatusMeta'),
 };
 
 const state = {
     callCode: null,
     role: null,
     peer: null,
-    pollTimer: null,
     localStream: null,
     remoteStream: null,
     consumedCandidates: {
@@ -55,6 +65,13 @@ const state = {
     isRecording: false,
     isDemo: false,
     demoPeer: null,
+    currentTarget: 'None',
+    sipClient: null,
+    sipRegistered: false,
+    sipSession: null,
+    isSipCall: false,
+    sipTransportState: 'disconnected',
+    sipStatus: 'offline',
 };
 
 const iceServers = [
@@ -62,9 +79,19 @@ const iceServers = [
     { urls: 'stun:stun1.l.google.com:19302' },
 ];
 
+const sipConfig = window.__SIP_CLIENT_CONFIG__ || {};
+
 const THEME_KEY = 'call-console-theme';
 let dialpadOpen = false;
 let toneContext;
+let callHistory = [];
+const CALL_HISTORY_KEY = 'call-history';
+const MAX_CALL_HISTORY = 12;
+const signaling = new SignalingClient();
+signaling.on('session', handleSessionUpdate);
+signaling.on('sessionError', () => {
+    logEvent('Signaling update failed; retrying...');
+});
 
 const dialToneFrequencies = {
     '1': 697,
@@ -81,7 +108,7 @@ const dialToneFrequencies = {
     '#': 880,
 };
 
-# Audio assets for demo call
+// Audio assets for demo call
 const demoRingAudio = new Audio('/audio/demo-ring.wav');
 demoRingAudio.preload = 'auto';
 const demoLoopAudio = new Audio('/audio/demo-loop.wav');
@@ -178,6 +205,76 @@ function playDialTone(key) {
     oscillator.stop(now + 0.21);
 }
 
+function loadCallHistory() {
+    if (!window.localStorage) {
+        return [];
+    }
+    try {
+        const raw = localStorage.getItem(CALL_HISTORY_KEY);
+        return raw ? JSON.parse(raw) : [];
+    } catch {
+        return [];
+    }
+}
+
+function saveCallHistory() {
+    if (!window.localStorage) {
+        return;
+    }
+    try {
+        localStorage.setItem(CALL_HISTORY_KEY, JSON.stringify(callHistory));
+    } catch {
+        // ignore quota issues
+    }
+}
+
+function formatTimestamp(ts) {
+    try {
+        return new Intl.DateTimeFormat(undefined, {
+            dateStyle: 'short',
+            timeStyle: 'short',
+        }).format(new Date(ts));
+    } catch {
+        return ts;
+    }
+}
+
+function renderCallHistory() {
+    if (!els.callHistory) {
+        return;
+    }
+    if (!callHistory.length) {
+        els.callHistory.innerHTML = '<div class="call-history__empty">No call logs yet.</div>';
+        return;
+    }
+    els.callHistory.innerHTML = callHistory
+        .map(
+            (entry) => `
+                <div class="call-history__entry">
+                    <strong>${entry.label}</strong>
+                    <small>${formatTimestamp(entry.timestamp)} · ${entry.details || ''}</small>
+                </div>`
+        )
+        .join('');
+}
+
+function addCallHistoryEntry(entry) {
+    const payload = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        timestamp: new Date().toISOString(),
+        ...entry,
+    };
+    callHistory = [payload, ...callHistory].slice(0, MAX_CALL_HISTORY);
+    saveCallHistory();
+    renderCallHistory();
+}
+
+function clearCallHistory() {
+    callHistory = [];
+    saveCallHistory();
+    renderCallHistory();
+}
+
 function startDemoAudio() {
     stopDemoAudio();
     const startLoop = () => {
@@ -244,6 +341,255 @@ function logEvent(message) {
     }
 }
 
+function setUserPresence(state = 'online') {
+    if (!els.userPresenceIndicator) {
+        return;
+    }
+
+    const variants = {
+        online: { className: 'status-dot--online', text: 'Online', label: 'User online' },
+        away: { className: 'status-dot--away', text: 'Away', label: 'User away' },
+        offline: { className: 'status-dot--offline', text: 'Offline', label: 'User offline' },
+    };
+    const next = variants[state] || variants.online;
+    const dot = els.userPresenceIndicator;
+
+    dot.classList.remove('status-dot--idle', 'status-dot--online', 'status-dot--away', 'status-dot--offline');
+    dot.classList.add(next.className);
+    dot.setAttribute('aria-label', next.label);
+    dot.setAttribute('title', next.label);
+
+    if (els.userPresenceText) {
+        els.userPresenceText.textContent = next.text;
+    }
+}
+
+function updateSipStatus(status = 'offline', metaText = '') {
+    if (!els.sipStatusIndicator || !els.sipStatusText) {
+        return;
+    }
+
+    const variants = {
+        disabled: { className: 'status-dot--offline', text: 'SIP disabled', meta: 'Add credentials to enable SIP' },
+        connecting: { className: 'status-dot--idle', text: 'Registering...', meta: 'Connecting to jambonz' },
+        registered: { className: 'status-dot--online', text: 'Registered - Online', meta: 'Ready for PSTN bridging' },
+        reconnecting: { className: 'status-dot--idle', text: 'Re-registering...', meta: 'Retrying gateway connection' },
+        offline: { className: 'status-dot--offline', text: 'SIP offline', meta: 'Transport disconnected' },
+        error: { className: 'status-dot--away', text: 'Registration error', meta: 'Check SIP logs' },
+    };
+
+    const next = variants[status] || variants.offline;
+    state.sipStatus = status;
+
+    const dot = els.sipStatusIndicator;
+    dot.classList.remove('status-dot--idle', 'status-dot--online', 'status-dot--live', 'status-dot--away', 'status-dot--offline');
+    dot.classList.add(next.className);
+    dot.setAttribute('aria-label', next.text);
+    dot.setAttribute('title', next.text);
+
+    els.sipStatusText.textContent = next.text;
+    if (els.sipStatusMeta) {
+        els.sipStatusMeta.textContent = metaText || next.meta;
+    }
+}
+
+function hasSipStack() {
+    return Boolean(sipConfig?.wssServer && sipConfig?.username && sipConfig?.domain);
+}
+
+async function initSipStack() {
+    if (!hasSipStack() || state.sipClient) {
+        return;
+    }
+
+    updateSipStatus('connecting', 'Registering with jambonz...');
+    state.sipClient = new SipClient(sipConfig, iceServers);
+    state.sipClient.on('registration', handleSipRegistration);
+    state.sipClient.on('transport', handleSipTransport);
+    state.sipClient.on('invite', handleSipInvite);
+    state.sipClient.on('sessionState', handleSipSessionState);
+    state.sipClient.on('error', () => {
+        logEvent('SIP stack error');
+        updateSipStatus('error', 'SIP stack error');
+    });
+
+    try {
+        await state.sipClient.start();
+    } catch (error) {
+        console.error('SIP registration failed', error);
+        logEvent('Unable to register with jambonz SIP gateway');
+        updateCallStatus('SIP offline', 'Verify jambonz credentials', 'idle');
+        updateSipStatus('error', 'Unable to register with jambonz');
+    }
+}
+
+function handleSipRegistration(event) {
+    const status = event?.status || 'unknown';
+    state.sipRegistered = status === 'registered';
+    logEvent(`SIP status: ${status}`);
+    switch (status) {
+        case 'registered':
+            updateSipStatus('registered', 'Ready for PSTN bridging');
+            break;
+        case 'unregistered':
+            updateSipStatus('reconnecting', 'Awaiting next register');
+            break;
+        case 'terminated':
+            updateSipStatus('offline', 'Registration terminated');
+            break;
+        default:
+            updateSipStatus('connecting', `Status: ${status}`);
+            break;
+    }
+}
+
+function handleSipTransport(event) {
+    state.sipTransportState = event?.state || 'unknown';
+    if (event?.state === 'disconnected') {
+        logEvent('SIP transport disconnected');
+        state.sipRegistered = false;
+        updateSipStatus('offline', 'Transport disconnected');
+    } else if (event?.state === 'connected') {
+        const status = state.sipRegistered ? 'registered' : 'connecting';
+        updateSipStatus(status, state.sipRegistered ? 'Registered - Online' : 'Registering with jambonz...');
+    }
+}
+
+async function handleSipInvite(payload) {
+    if (!payload?.invitation) {
+        return;
+    }
+
+    await hangUp();
+
+    state.isSipCall = true;
+    state.sipSession = payload.invitation;
+    const caller = getSipIdentity(payload.invitation);
+    state.currentTarget = caller;
+    setDialTargetLabel(caller);
+    setCallCode('SIP');
+    updateCallStatus('Incoming SIP call', `From ${caller}`, 'pending');
+    logEvent(`Incoming SIP call from ${caller}`);
+
+    try {
+        await answerSipInvitation(payload.invitation);
+    } catch (error) {
+        logEvent('Unable to accept SIP call');
+        resetSipSession();
+    }
+}
+
+function handleSipSessionState(event) {
+    if (!event?.invitation || state.sipSession !== event.invitation) {
+        return;
+    }
+
+    switch (event.status) {
+        case 'established':
+            attachSipMedia(event.invitation);
+            updateCallStatus('Live SIP call', `Connected to ${state.currentTarget}`, 'active');
+            logEvent('SIP call established');
+            break;
+        case 'terminated':
+            logEvent('SIP call ended');
+            updateCallStatus('SIP call ended', '', 'ended');
+            resetSipSession();
+            break;
+        default:
+            break;
+    }
+}
+
+async function answerSipInvitation(invitation) {
+    try {
+        await initLocalMedia();
+    } catch (error) {
+        updateCallStatus('Mic/camera blocked', 'Cannot answer SIP call');
+        await invitation.reject({});
+        throw error;
+    }
+
+    invitation.delegate = invitation.delegate || {};
+    invitation.delegate.onSessionDescriptionHandler = () => {
+        attachSipMedia(invitation);
+    };
+
+    const options = {
+        sessionDescriptionHandlerOptions: {
+            constraints: {
+                audio: true,
+                video: true,
+            },
+            peerConnectionConfiguration: {
+                iceServers,
+            },
+        },
+    };
+
+    await invitation.accept(options);
+    els.hangupBtn.disabled = false;
+}
+
+function attachSipMedia(invitation) {
+    const handler = invitation.sessionDescriptionHandler;
+    if (!handler) {
+        return;
+    }
+
+    if (handler.remoteMediaStream) {
+        state.remoteStream = handler.remoteMediaStream;
+        els.remoteVideo.srcObject = handler.remoteMediaStream;
+    }
+
+    if (handler.localMediaStream) {
+        state.localStream = handler.localMediaStream;
+        els.localVideo.srcObject = handler.localMediaStream;
+    }
+}
+
+function resetSipSession(resetUi = true) {
+    state.isSipCall = false;
+    if (state.sipSession) {
+        try {
+            state.sipSession.dispose?.();
+        } catch (_) {
+            // ignore
+        }
+    }
+    state.sipSession = null;
+    if (resetUi) {
+        setCallCode(null);
+        setDialTargetLabel('None');
+        stopDemoAudio();
+        resetSession();
+    }
+}
+
+async function terminateSipSession() {
+    if (!state.sipSession) {
+        return;
+    }
+    try {
+        if (typeof state.sipSession.bye === 'function') {
+            await state.sipSession.bye();
+        } else if (typeof state.sipSession.cancel === 'function') {
+            await state.sipSession.cancel();
+        }
+    } catch (error) {
+        console.warn('SIP hangup failed', error);
+    } finally {
+        resetSipSession(false);
+    }
+}
+
+function getSipIdentity(invitation) {
+    const identity = invitation?.remoteIdentity;
+    if (!identity) {
+        return 'Unknown caller';
+    }
+    return identity.displayName || identity.uri?.user || 'Unknown caller';
+}
+
 function updateCallStatus(text, meta = '', variant = 'idle') {
     els.statusText.textContent = text;
     els.statusMeta.textContent = meta;
@@ -253,6 +599,20 @@ function updateCallStatus(text, meta = '', variant = 'idle') {
     const variantClass =
         variant === 'active' ? 'status-dot--live' : variant === 'pending' ? 'status-dot--online' : 'status-dot--idle';
     els.statusDot.classList.add(variantClass);
+
+    if (els.statusPill) {
+        els.statusPill.textContent = text ? text.toUpperCase() : 'IDLE';
+        els.statusPill.classList.remove('status-pill--idle', 'status-pill--pending', 'status-pill--active', 'status-pill--ended');
+        const pillClass =
+            variant === 'active'
+                ? 'status-pill--active'
+                : variant === 'pending'
+                    ? 'status-pill--pending'
+                    : variant === 'ended'
+                        ? 'status-pill--ended'
+                        : 'status-pill--idle';
+        els.statusPill.classList.add(pillClass);
+    }
 }
 
 function setCallCode(value) {
@@ -312,14 +672,9 @@ function createPeerConnection(role) {
         }
 
         const candidate = event.candidate.toJSON ? event.candidate.toJSON() : event.candidate;
-        axios
-            .post(`/call-sessions/${state.callCode}/candidate`, {
-                candidate,
-                role,
-            })
-            .catch(() => {
-                logEvent('ICE candidate send failed');
-            });
+        signaling.sendCandidate(state.callCode, role, candidate).catch(() => {
+            logEvent('ICE candidate send failed');
+        });
     };
 
     pc.onconnectionstatechange = () => {
@@ -354,6 +709,10 @@ async function preparePeer(role) {
 }
 
 async function startCall() {
+    if (state.isSipCall) {
+        updateCallStatus('SIP call in progress', 'End SIP call before starting a session');
+        return;
+    }
     if (!navigator.mediaDevices) {
         updateCallStatus('Unsupported browser', 'WebRTC requires secure context');
         return;
@@ -362,8 +721,9 @@ async function startCall() {
     try {
         updateCallStatus('Creating session...', '', 'pending');
         const dialedNumber = els.dialInput.value.trim();
-        setDialTargetLabel(dialedNumber || 'Share code only');
-        const { data } = await axios.post('/call-sessions', {
+        state.currentTarget = dialedNumber || 'Share code only';
+        setDialTargetLabel(state.currentTarget);
+        const data = await signaling.createSession({
             dialed_number: dialedNumber || null,
         });
 
@@ -374,7 +734,7 @@ async function startCall() {
 
         const offer = await state.peer.createOffer();
         await state.peer.setLocalDescription(offer);
-        await axios.post(`/call-sessions/${state.callCode}/offer`, {
+        await signaling.sendOffer(state.callCode, {
             offer: {
                 type: state.peer.localDescription.type,
                 sdp: state.peer.localDescription.sdp,
@@ -382,8 +742,13 @@ async function startCall() {
             dialed_number: dialedNumber || null,
         });
 
-        updateCallStatus('Calling...', dialedNumber ? `Dialing ${dialedNumber}` : 'Waiting for partner', 'pending');
-        startPolling();
+        startDemoAudio();
+        addCallHistoryEntry({
+            label: 'Call started',
+            details: `${state.currentTarget} · Code ${data.call_code}`,
+        });
+        updateCallStatus('Ringing', dialedNumber ? `Dialing ${dialedNumber}` : 'Waiting for partner', 'pending');
+        await signaling.subscribe(state.callCode, state.role);
     } catch (error) {
         updateCallStatus('Unable to start call', 'Check media permissions', 'idle');
         logEvent('Start call failed');
@@ -392,6 +757,10 @@ async function startCall() {
 }
 
 async function joinCall() {
+    if (state.isSipCall) {
+        updateCallStatus('SIP call active', 'Hang up before joining another call');
+        return;
+    }
     const code = clampCode(els.joinCodeInput.value || '');
     if (!code) {
         updateCallStatus('Code required', 'Enter a valid session code');
@@ -399,14 +768,15 @@ async function joinCall() {
     }
 
     try {
-        const { data } = await axios.get(`/call-sessions/${code}`);
+        const data = await signaling.fetchSession(code);
         if (!data.offer) {
             updateCallStatus('No offer found', 'Creator has not started call yet');
             return;
         }
 
         setCallCode(code);
-        setDialTargetLabel(data.dialed_number || `Code ${code}`);
+        state.currentTarget = data.dialed_number || `Code ${code}`;
+        setDialTargetLabel(state.currentTarget);
         await preparePeer('answer');
         await state.peer.setRemoteDescription(data.offer);
 
@@ -416,7 +786,7 @@ async function joinCall() {
 
         const answer = await state.peer.createAnswer();
         await state.peer.setLocalDescription(answer);
-        await axios.post(`/call-sessions/${code}/answer`, {
+        await signaling.sendAnswer(code, {
             answer: {
                 type: state.peer.localDescription.type,
                 sdp: state.peer.localDescription.sdp,
@@ -424,52 +794,11 @@ async function joinCall() {
         });
 
         updateCallStatus('Answer sent', 'Waiting for media', 'pending');
-        startPolling();
+        await signaling.subscribe(code, state.role);
     } catch (error) {
         updateCallStatus('Join failed', 'Confirm the code and try again');
         resetSession();
     }
-}
-
-function startPolling() {
-    if (state.pollTimer) {
-        clearInterval(state.pollTimer);
-    }
-
-    const poll = async () => {
-        if (!state.callCode) {
-            return;
-        }
-
-        try {
-            const { data } = await axios.get(`/call-sessions/${state.callCode}`);
-            reflectServerStatus(data);
-
-            if (state.role === 'offer' && data.answer && !state.remoteDescriptionApplied) {
-                await state.peer.setRemoteDescription(data.answer);
-                state.remoteDescriptionApplied = true;
-                logEvent('Answer applied');
-            }
-
-            if (state.role === 'offer' && Array.isArray(data.answer_candidates)) {
-                await applyCandidates('answer', data.answer_candidates);
-            }
-
-            if (state.role === 'answer' && Array.isArray(data.offer_candidates)) {
-                await applyCandidates('offer', data.offer_candidates);
-            }
-
-            if (data.status === 'ended') {
-                updateCallStatus('Remote left', 'Session closed');
-                resetSession(false);
-            }
-        } catch (error) {
-            logEvent('Polling failed; retrying...');
-        }
-    };
-
-    poll();
-    state.pollTimer = setInterval(poll, 2500);
 }
 
 async function applyCandidates(type, candidates) {
@@ -483,6 +812,41 @@ async function applyCandidates(type, candidates) {
         }
     }
     state.consumedCandidates[key] = candidates.length;
+}
+
+async function handleSessionUpdate(session) {
+    reflectServerStatus(session);
+
+    if (!state.peer) {
+        return;
+    }
+
+    try {
+        if (state.role === 'offer' && session.answer && !state.remoteDescriptionApplied) {
+            await state.peer.setRemoteDescription(session.answer);
+            state.remoteDescriptionApplied = true;
+            logEvent('Answer applied');
+        }
+
+        if (state.role === 'offer' && Array.isArray(session.answer_candidates)) {
+            await applyCandidates('answer', session.answer_candidates);
+        }
+
+        if (state.role === 'answer' && Array.isArray(session.offer_candidates)) {
+            await applyCandidates('offer', session.offer_candidates);
+        }
+
+        if (!state.isDemo && session.status === 'ended') {
+            updateCallStatus('Remote left', 'Session closed', 'ended');
+            addCallHistoryEntry({
+                label: 'Remote left',
+                details: `Code ${state.callCode || ''}`,
+            });
+            resetSession();
+        }
+    } catch (error) {
+        logEvent('Failed to process signaling update');
+    }
 }
 
 function reflectServerStatus(session) {
@@ -517,18 +881,21 @@ function reflectServerStatus(session) {
 }
 
 async function hangUp() {
-    const hadSession = state.isDemo || state.callCode || state.peer;
+    const wasSipCall = state.isSipCall || Boolean(state.sipSession);
+    const hadSession = state.isDemo || state.callCode || state.peer || wasSipCall;
     if (!hadSession) {
         return;
+    }
+
+    if (wasSipCall && state.sipSession) {
+        await terminateSipSession();
     }
 
     if (state.isDemo) {
         logEvent('Demo call ended');
     } else if (state.callCode) {
         try {
-            await axios.post(`/call-sessions/${state.callCode}/status`, {
-                status: 'ended',
-            });
+            await signaling.updateStatus(state.callCode, 'ended');
         } catch (_) {
             // ignore
         }
@@ -538,19 +905,31 @@ async function hangUp() {
         state.recorder.stop();
     }
 
-    updateCallStatus('Call ended', 'Session reset');
+    updateCallStatus('Call ended', 'Session reset', 'ended');
     logEvent('Call ended locally');
+    if (state.isDemo) {
+        addCallHistoryEntry({
+            label: 'Demo call ended',
+            details: 'Loopback closed',
+        });
+    } else if (wasSipCall) {
+        addCallHistoryEntry({
+            label: 'SIP call ended',
+            details: `Caller ${state.currentTarget || ''}`,
+        });
+    } else if (state.callCode) {
+        addCallHistoryEntry({
+            label: 'Call ended',
+            details: `${state.currentTarget || ''} · Code ${state.callCode}`,
+        });
+    }
     resetSession();
     setDialTargetLabel('None');
     stopDemoAudio();
 }
 
 function resetSession(clearCode = true) {
-    if (state.pollTimer) {
-        clearInterval(state.pollTimer);
-        state.pollTimer = null;
-    }
-
+    signaling.unsubscribe();
     if (state.peer) {
         state.peer.ontrack = null;
         state.peer.onicecandidate = null;
@@ -768,6 +1147,10 @@ async function copyCallCode() {
 }
 
 async function startDemoCall() {
+    if (state.isSipCall) {
+        updateCallStatus('SIP call active', 'Hang up SIP call before starting demo');
+        return;
+    }
     try {
         await initLocalMedia();
     } catch (error) {
@@ -780,6 +1163,7 @@ async function startDemoCall() {
         try {
             updateCallStatus('Starting demo call...', 'Loopback test', 'pending');
             state.isDemo = true;
+            state.currentTarget = 'Demo loopback';
             startDemoAudio();
 
         const pc1 = new RTCPeerConnection({ iceServers });
@@ -835,6 +1219,10 @@ async function startDemoCall() {
         setCallCode('DEMO');
         setDialTargetLabel('Self test');
         els.hangupBtn.disabled = false;
+        addCallHistoryEntry({
+            label: 'Demo call started',
+            details: 'Loopback self test',
+        });
         logEvent('Demo call initialized');
     } catch (error) {
         updateCallStatus('Demo call failed', 'Loopback error');
@@ -860,6 +1248,7 @@ els.recordBtn?.addEventListener('click', toggleRecording);
 els.copyCodeBtn?.addEventListener('click', copyCallCode);
 els.themeToggleBtn?.addEventListener('click', toggleTheme);
 els.demoCallBtn?.addEventListener('click', startDemoCall);
+els.clearHistoryBtn?.addEventListener('click', clearCallHistory);
 initDialpad();
 initLocalMedia().catch(() => {
     // permission denied handled in initLocalMedia
@@ -869,5 +1258,31 @@ setDialTargetLabel('None');
 setRecordingStateLabel('Off');
 setSessionStateLabel('Idle');
 initTheme();
+setUserPresence('online');
+if (hasSipStack()) {
+    initSipStack();
+} else {
+    updateSipStatus('disabled', 'Provide SIP credentials to enable SIP calling');
+}
+
+callHistory = loadCallHistory();
+renderCallHistory();
+
+addCallHistoryEntry({
+    label: 'Console ready',
+    details: 'Dashboard booted',
+});
+
+document.addEventListener('visibilitychange', () => {
+    setUserPresence(document.hidden ? 'away' : 'online');
+});
+
+window.addEventListener('beforeunload', () => {
+    setUserPresence('offline');
+});
+
+els.logoutForm?.addEventListener('submit', () => {
+    setUserPresence('offline');
+});
 
 })();

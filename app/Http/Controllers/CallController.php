@@ -17,6 +17,7 @@ class CallController extends Controller
     {
         return view('call.dashboard', [
             'user' => $request->user(),
+            'sipConfig' => $this->sipConfig($request),
         ]);
     }
 
@@ -136,6 +137,18 @@ class CallController extends Controller
             'offer_candidates' => $session->offer_candidates ?? [],
             'answer_candidates' => $session->answer_candidates ?? [],
             'updated_at' => $session->updated_at,
+        ];
+    }
+
+    protected function sipConfig(Request $request): array
+    {
+        return [
+            'wssServer' => config('jambonz.sip_wss_server'),
+            'domain' => config('jambonz.sip_domain'),
+            'username' => config('jambonz.sip_username'),
+            'password' => config('jambonz.sip_password'),
+            'displayName' => config('jambonz.sip_display_name') ?: ($request->user()->name ?: $request->user()->email),
+            'uri' => config('jambonz.webrtc_uri'),
         ];
     }
 }
