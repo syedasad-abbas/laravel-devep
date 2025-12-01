@@ -61,11 +61,11 @@ spec:
             periodSeconds: 20
           volumeMounts:
             - name: laravel-source
-              mountPath: /app
+              mountPath: /var/www/html
       volumes:
         - name: laravel-source
           hostPath:
-            path: /home/tpl/laravel-devep
+            path: /home/asad/laravel-devep
             type: Directory
 ---
 apiVersion: v1
@@ -80,5 +80,5 @@ spec:
     app: laravel-web-app
   ports:
     - name: http
-      port: 5010
+      port: 8000
       targetPort: http

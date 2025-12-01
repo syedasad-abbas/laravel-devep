@@ -45,6 +45,7 @@ const els = {
     sipStatusIndicator: document.getElementById('sipStatusIndicator'),
     sipStatusText: document.getElementById('sipStatusText'),
     sipStatusMeta: document.getElementById('sipStatusMeta'),
+    sipStatusDomain: document.getElementById('sipStatusDomain'),
     referBtn: document.getElementById('referBtn'),
 };
 
@@ -83,6 +84,44 @@ const iceServers = [
 ];
 
 const sipConfig = window.__SIP_CLIENT_CONFIG__ || {};
+
+function formatSipAddress() {
+    if (!sipConfig?.username || !sipConfig?.domain) {
+        return null;
+    }
+    return `${sipConfig.username}@${sipConfig.domain}`;
+}
+
+function missingSipConfigFields() {
+    const missing = [];
+    if (!sipConfig?.wssServer) {
+        missing.push('WebSocket server (JAMBONZ_SIP_WSS)');
+    }
+    if (!sipConfig?.username) {
+        missing.push('SIP username from login');
+    }
+    if (!sipConfig?.domain) {
+        missing.push('SIP domain from login');
+    }
+    if (!sipConfig?.password) {
+        missing.push('SIP password from login');
+    }
+    return missing;
+}
+
+function hasSipStack(logIssues = false) {
+    const missing = missingSipConfigFields();
+    if (missing.length === 0) {
+        return true;
+    }
+    if (logIssues) {
+        const message = `SIP disabled: missing ${missing.join(', ')}`;
+        console.warn('[SIP]', message);
+        logEvent(message);
+        updateSipStatus('disabled', message);
+    }
+    return false;
+}
 
 const THEME_KEY = 'call-console-theme';
 let dialpadOpen = false;
@@ -391,15 +430,37 @@ function buildReferTarget(rawValue) {
     return `sip:${trimmed}`;
 }
 
+function updateSipDomainLabel(status = 'offline') {
+    if (!els.sipStatusDomain) {
+        return;
+    }
+    const address = formatSipAddress();
+    if (!address) {
+        els.sipStatusDomain.textContent = 'No jambonz domain configured';
+        return;
+    }
+    const prefix = status === 'registered' ? 'Registered as' : 'Target';
+    els.sipStatusDomain.textContent = `${prefix} ${address}`;
+}
+
 function updateSipStatus(status = 'offline', metaText = '') {
     if (!els.sipStatusIndicator || !els.sipStatusText) {
         return;
     }
 
+    const sipAddress = formatSipAddress();
     const variants = {
-        disabled: { className: 'status-dot--offline', text: 'SIP disabled', meta: 'Add credentials to enable SIP' },
-        connecting: { className: 'status-dot--idle', text: 'Registering...', meta: 'Connecting to jambonz' },
-        registered: { className: 'status-dot--online', text: 'Registered - Online', meta: 'Ready for PSTN bridging' },
+        disabled: { className: 'status-dot--offline', text: 'SIP disabled', meta: 'Provide SIP credentials to enable SIP' },
+        connecting: {
+            className: 'status-dot--idle',
+            text: 'Registering...',
+            meta: sipAddress ? `Registering ${sipAddress}` : 'Connecting to jambonz',
+        },
+        registered: {
+            className: 'status-dot--online',
+            text: 'Registered to jambonz',
+            meta: sipAddress ? `Online as ${sipAddress}` : 'Ready for PSTN bridging',
+        },
         reconnecting: { className: 'status-dot--idle', text: 'Re-registering...', meta: 'Retrying gateway connection' },
         offline: { className: 'status-dot--offline', text: 'SIP offline', meta: 'Transport disconnected' },
         error: { className: 'status-dot--away', text: 'Registration error', meta: 'Check SIP logs' },
@@ -418,10 +479,7 @@ function updateSipStatus(status = 'offline', metaText = '') {
     if (els.sipStatusMeta) {
         els.sipStatusMeta.textContent = metaText || next.meta;
     }
-}
-
-function hasSipStack() {
-    return Boolean(sipConfig?.wssServer && sipConfig?.username && sipConfig?.domain);
+    updateSipDomainLabel(status);
 }
 
 async function initSipStack() {
@@ -429,7 +487,16 @@ async function initSipStack() {
         return;
     }
 
-    updateSipStatus('connecting', 'Registering with jambonz...');
+    const sipAddress = formatSipAddress();
+    const targetMessage = sipAddress
+        ? `Registering ${sipAddress}`
+        : 'Registering with jambonz...';
+    console.info('[SIP] Starting registration', {
+        address: sipAddress,
+        wssServer: sipConfig?.wssServer,
+    });
+    logEvent(sipAddress ? `Attempting SIP registration for ${sipAddress}` : 'Attempting SIP registration');
+    updateSipStatus('connecting', targetMessage);
     state.sipClient = new SipClient(sipConfig, iceServers);
     state.sipClient.on('registration', handleSipRegistration);
     state.sipClient.on('transport', handleSipTransport);
@@ -457,7 +524,7 @@ function handleSipRegistration(event) {
     logEvent(`SIP status: ${status}`);
     switch (status) {
         case 'registered':
-            updateSipStatus('registered', 'Ready for PSTN bridging');
+            updateSipStatus('registered', formatSipAddress() ? `Online as ${formatSipAddress()}` : 'Ready for PSTN bridging');
             break;
         case 'unregistered':
             updateSipStatus('reconnecting', 'Awaiting next register');
@@ -479,7 +546,15 @@ function handleSipTransport(event) {
         updateSipStatus('offline', 'Transport disconnected');
     } else if (event?.state === 'connected') {
         const status = state.sipRegistered ? 'registered' : 'connecting';
-        updateSipStatus(status, state.sipRegistered ? 'Registered - Online' : 'Registering with jambonz...');
+        const sipAddress = formatSipAddress();
+        const meta = state.sipRegistered
+            ? sipAddress
+                ? `Online as ${sipAddress}`
+                : 'Registered - Online'
+            : sipAddress
+                ? `Registering ${sipAddress}`
+                : 'Registering with jambonz...';
+        updateSipStatus(status, meta);
     }
 }
 
@@ -1366,7 +1441,7 @@ setSessionStateLabel('Idle');
 initTheme();
 setUserPresence('online');
 setReferButtonState(false);
-if (hasSipStack()) {
+if (hasSipStack(true)) {
     initSipStack();
 } else {
     updateSipStatus('disabled', 'Provide SIP credentials to enable SIP calling');

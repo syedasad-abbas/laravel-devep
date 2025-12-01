@@ -28,6 +28,9 @@
                             <div class="sip-status-copy">
                                 <span class="sip-status-label" id="sipStatusText">SIP offline</span>
                                 <span class="sip-status-meta" id="sipStatusMeta">Awaiting registration</span>
+                                <span class="sip-status-domain" id="sipStatusDomain">
+                                    {{ $sipIdentity ? 'Target ' . $sipIdentity : 'No jambonz credentials configured' }}
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -167,6 +170,16 @@
                                     <strong id="recordingStateLabel">Off</strong>
                                 </div>
                             </div>
+                        </div>
+
+                        <div class="panel-card">
+                            <h3>SIP credentials</h3>
+                            <p>Logged in as <strong>{{ $sipIdentity ?? 'unknown user' }}</strong>. Logout to change credentials.</p>
+                            <ul class="sip-credentials-list">
+                                <li><span>Username:</span> <strong>{{ $sipConfig['username'] ?? 'n/a' }}</strong></li>
+                                <li><span>Domain:</span> <strong>{{ $sipConfig['domain'] ?? 'n/a' }}</strong></li>
+                                <li><span>WebSocket SBC:</span> <strong>{{ $sipConfig['wssServer'] ?? 'n/a' }}</strong></li>
+                            </ul>
                         </div>
 
                         <div class="panel-card dialpad-card">

@@ -18,6 +18,7 @@ class CallController extends Controller
         return view('call.dashboard', [
             'user' => $request->user(),
             'sipConfig' => $this->sipConfig($request),
+            'sipIdentity' => $this->sipIdentity($request),
         ]);
     }
 
@@ -142,13 +143,32 @@ class CallController extends Controller
 
     protected function sipConfig(Request $request): array
     {
+        $username = (string) $request->session()->get('jambonz_sip_username');
+        $domain = (string) $request->session()->get('jambonz_sip_domain');
+        $password = (string) $request->session()->get('jambonz_sip_password');
+        $username = $username !== '' ? $username : null;
+        $domain = $domain !== '' ? $domain : null;
+        $password = $password !== '' ? $password : null;
+
         return [
             'wssServer' => config('jambonz.sip_wss_server'),
-            'domain' => config('jambonz.sip_domain'),
-            'username' => config('jambonz.sip_username'),
-            'password' => config('jambonz.sip_password'),
-            'displayName' => config('jambonz.sip_display_name') ?: ($request->user()->name ?: $request->user()->email),
-            'uri' => config('jambonz.webrtc_uri'),
+            'domain' => $domain,
+            'username' => $username,
+            'password' => $password,
+            'displayName' => $request->user()?->name ?: $username,
+            'uri' => $username && $domain ? sprintf('sip:%s@%s', $username, $domain) : null,
+            'referDomain' => $domain,
         ];
+    }
+
+    protected function sipIdentity(Request $request): ?string
+    {
+        $username = (string) $request->session()->get('jambonz_sip_username');
+        $domain = (string) $request->session()->get('jambonz_sip_domain');
+        if ($username === '' || $domain === '') {
+            return null;
+        }
+
+        return sprintf('%s@%s', $username, $domain);
     }
 }
