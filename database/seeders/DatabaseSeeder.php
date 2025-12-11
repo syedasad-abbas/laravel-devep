@@ -23,3 +23,5 @@ class DatabaseSeeder extends Seeder
         ]);
     }
 }
+
+enable websocket endpoint on node.js server 

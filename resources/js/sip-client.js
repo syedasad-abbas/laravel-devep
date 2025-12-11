@@ -8,6 +8,7 @@ export default class SipClient {
         this.registerer = null;
         this.listeners = {};
         this.started = false;
+        this.activeSession = null;
     }
 
     isEnabled() {
@@ -68,6 +69,7 @@ export default class SipClient {
         }
 
         await this.userAgent.stop();
+        this.activeSession = null;
         this.started = false;
     }
 
@@ -107,7 +109,16 @@ export default class SipClient {
     }
 
     handleInvite(invitation) {
+        invitation.delegate = invitation.delegate || {};
+        invitation.delegate.onRefer = (referral) => this.handleReferral(invitation, referral);
+
         invitation.stateChange.addListener((state) => {
+            if (state === SessionState.Established) {
+                this.activeSession = invitation;
+            } else if (state === SessionState.Terminated && this.activeSession === invitation) {
+                this.activeSession = null;
+            }
+
             this.emit('sessionState', {
                 invitation,
                 state,
@@ -116,6 +127,17 @@ export default class SipClient {
         });
 
         this.emit('invite', { invitation });
+    }
+
+    handleReferral(invitation, referral) {
+        this.emit('refer', { invitation, referral });
+    }
+
+    async refer(target, options = {}) {
+        if (!this.activeSession) {
+            throw new Error('No active SIP session available for REFER');
+        }
+        return this.activeSession.refer(target, options);
     }
 
     describeRegistererState(state) {

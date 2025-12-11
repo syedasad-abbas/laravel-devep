@@ -47,7 +47,7 @@ return [
     | we connect the PSTN caller to a WebRTC agent that logs into the app.
     |
     */
-    'webrtc_uri' => env('JAMBONZ_WEBRTC_URI'),
+    'webrtc_uri' => env('JAMBONZ_WEBRTC_URI', 'sip:agent@sbc.jambonz.local'),
     'webrtc_username' => env('JAMBONZ_WEBRTC_USERNAME'),
     'webrtc_password' => env('JAMBONZ_WEBRTC_PASSWORD'),
 
@@ -72,8 +72,8 @@ return [
     | (WSS), SIP domain, and credentials issued by your carrier/app.
     |
     */
-    'sip_wss_server' => env('JAMBONZ_SIP_WSS'),
-    'sip_domain' => env('JAMBONZ_SIP_DOMAIN'),
+    'sip_wss_server' => env('JAMBONZ_SIP_WSS', 'wss://sbc.jambonz.local:8443'),
+    'sip_domain' => env('JAMBONZ_SIP_DOMAIN', 'sbc.jambonz.local'),
     'sip_username' => env('JAMBONZ_SIP_USERNAME'),
     'sip_password' => env('JAMBONZ_SIP_PASSWORD'),
     'sip_display_name' => env('JAMBONZ_SIP_DISPLAY_NAME'),

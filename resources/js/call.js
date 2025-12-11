@@ -38,12 +38,20 @@ const els = {
     statusPill: document.getElementById('statusPill'),
     callHistory: document.getElementById('callHistory'),
     clearHistoryBtn: document.getElementById('clearHistoryBtn'),
+    joinCodeInput: document.getElementById('joinCodeInput'),
     userPresenceIndicator: document.getElementById('userPresenceIndicator'),
     userPresenceText: document.getElementById('userPresenceText'),
     logoutForm: document.getElementById('logoutForm'),
     sipStatusIndicator: document.getElementById('sipStatusIndicator'),
     sipStatusText: document.getElementById('sipStatusText'),
     sipStatusMeta: document.getElementById('sipStatusMeta'),
+    referBtn: document.getElementById('referBtn'),
+    sipLoginForm: document.getElementById('sipLoginForm'),
+    sipEmailInput: document.getElementById('sipEmailInput'),
+    sipUsernameInput: document.getElementById('sipUsernameInput'),
+    sipLoginMessage: document.getElementById('sipLoginMessage'),
+    sipDomainWarning: document.getElementById('sipDomainWarning'),
+    sipLoginSubmitBtn: document.getElementById('sipLoginSubmitBtn'),
 };
 
 const state = {
@@ -72,6 +80,7 @@ const state = {
     isSipCall: false,
     sipTransportState: 'disconnected',
     sipStatus: 'offline',
+    sipReferInProgress: false,
 };
 
 const iceServers = [
@@ -79,7 +88,14 @@ const iceServers = [
     { urls: 'stun:stun1.l.google.com:19302' },
 ];
 
-const sipConfig = window.__SIP_CLIENT_CONFIG__ || {};
+let sipConfig = window.__SIP_CLIENT_CONFIG__ || {};
+// Capture server-provided SIP metadata so the browser can build/reg SIP requests without reloading the page.
+const appDataset = appRoot?.dataset || {};
+const sipLoginEndpoint = appDataset.sipLoginEndpoint || '';
+const sbcDomain = appDataset.sbcDomain || '';
+let domainReachable = appDataset.domainReachable === '1';
+const domainStatusCode = appDataset.domainStatus || 'unknown';
+const domainStatusMessage = appDataset.domainMessage || '';
 
 const THEME_KEY = 'call-console-theme';
 let dialpadOpen = false;
@@ -114,6 +130,164 @@ demoRingAudio.preload = 'auto';
 const demoLoopAudio = new Audio('/audio/demo-loop.wav');
 demoLoopAudio.preload = 'auto';
 demoLoopAudio.loop = true;
+
+function getCsrfToken() {
+    const tokenTag = document.querySelector('meta[name="csrf-token"]');
+    return tokenTag?.content || '';
+}
+
+function setSipLoginMessage(message, isError = false) {
+    if (!els.sipLoginMessage) {
+        return;
+    }
+    els.sipLoginMessage.textContent = message;
+    els.sipLoginMessage.classList.toggle('text-error', isError);
+}
+
+function toggleSipLoginLoading(isLoading, loadingText = '') {
+    if (!els.sipLoginSubmitBtn) {
+        return;
+    }
+    if (isLoading) {
+        if (!els.sipLoginSubmitBtn.dataset.originalLabel) {
+            els.sipLoginSubmitBtn.dataset.originalLabel = els.sipLoginSubmitBtn.textContent || '';
+        }
+        if (loadingText) {
+            els.sipLoginSubmitBtn.textContent = loadingText;
+        }
+    } else if (els.sipLoginSubmitBtn.dataset.originalLabel) {
+        els.sipLoginSubmitBtn.textContent = els.sipLoginSubmitBtn.dataset.originalLabel;
+    }
+    els.sipLoginSubmitBtn.disabled = isLoading;
+}
+
+function showDomainWarning(visible, message = '') {
+    if (!els.sipDomainWarning) {
+        return;
+    }
+    els.sipDomainWarning.hidden = !visible;
+    if (!visible || !message) {
+        return;
+    }
+    const warningBody = els.sipDomainWarning.querySelector('p');
+    if (warningBody) {
+        warningBody.textContent = message;
+    } else {
+        els.sipDomainWarning.textContent = message;
+    }
+}
+
+function handleInitialDomainWarning() {
+    // Surface DNS/domain issues immediately so agents know why registration cannot start.
+    if (!domainReachable) {
+        const baseWarning =
+            domainStatusMessage ||
+            (domainStatusCode === 'missing'
+                ? 'SIP domain not configured. Update env settings and reload the page.'
+                : sbcDomain
+                    ? `Address not found for ${sbcDomain}. Update DNS or VPN settings, then try again.`
+                    : 'SBC endpoint unavailable. Verify jambonz configuration.');
+        setSipLoginMessage(baseWarning, true);
+        showDomainWarning(true, baseWarning);
+    } else if (domainStatusMessage) {
+        setSipLoginMessage(domainStatusMessage);
+    }
+}
+
+function isDomainError(message) {
+    // Detect phrases returned by the backend that indicate DNS or configuration issues.
+    if (!message) {
+        return false;
+    }
+    const normalized = message.toLowerCase();
+    return (
+        normalized.includes('address not found') ||
+        normalized.includes('domain not configured') ||
+        normalized.includes('sip domain') ||
+        normalized.includes('sbc')
+    );
+}
+
+async function restartSipStack(newConfig = null) {
+    if (newConfig && typeof newConfig === 'object') {
+        sipConfig = {
+            ...sipConfig,
+            ...newConfig,
+        };
+    }
+
+    if (!hasSipStack()) {
+        updateSipStatus('disabled', 'Provide SIP credentials to enable SIP calling');
+        return;
+    }
+
+    if (state.sipSession) {
+        await terminateSipSession();
+    }
+
+    if (state.sipClient) {
+        try {
+            await state.sipClient.stop();
+        } catch (error) {
+            console.warn('Unable to stop SIP client', error);
+        }
+        state.sipClient = null;
+        state.sipRegistered = false;
+    }
+
+    await initSipStack();
+}
+
+async function handleSipLoginSubmit(event) {
+    event.preventDefault();
+    if (!sipLoginEndpoint) {
+        setSipLoginMessage('SIP login endpoint missing', true);
+        return;
+    }
+    const email = els.sipEmailInput?.value.trim();
+    const username = els.sipUsernameInput?.value.trim();
+    if (!email || !username) {
+        setSipLoginMessage('Email and username are required to register', true);
+        return;
+    }
+
+    // Send the registration bootstrap request to Laravel which proxies credentials to jambonz.
+    toggleSipLoginLoading(true, 'Contacting jambonz...');
+    setSipLoginMessage('Registering with jambonz...');
+    try {
+        const response = await fetch(sipLoginEndpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': getCsrfToken(),
+                Accept: 'application/json',
+            },
+            body: JSON.stringify({
+                email,
+                username,
+            }),
+        });
+
+        const payload = await response.json().catch(() => null);
+        if (!response.ok) {
+            throw new Error(payload?.message || 'Unable to register with jambonz');
+        }
+
+        await restartSipStack(payload?.config || {});
+        domainReachable = true;
+        setSipLoginMessage(payload?.message || 'Registration request sent to jambonz.');
+        showDomainWarning(false);
+    } catch (error) {
+        console.error('SIP login failed', error);
+        const errorMessage = error?.message || 'Unable to contact jambonz';
+        setSipLoginMessage(errorMessage, true);
+        if (isDomainError(errorMessage)) {
+            showDomainWarning(true, errorMessage);
+        }
+    } finally {
+        toggleSipLoginLoading(false);
+    }
+}
 
 function applyTheme(theme) {
     if (!document.body) {
@@ -341,6 +515,7 @@ function logEvent(message) {
     }
 }
 
+// Update the UI “is online” indicator whenever focus/visibility changes.
 function setUserPresence(state = 'online') {
     if (!els.userPresenceIndicator) {
         return;
@@ -362,6 +537,30 @@ function setUserPresence(state = 'online') {
     if (els.userPresenceText) {
         els.userPresenceText.textContent = next.text;
     }
+}
+
+function setReferButtonState(enabled) {
+    if (els.referBtn) {
+        els.referBtn.disabled = !enabled;
+    }
+}
+
+function buildReferTarget(rawValue) {
+    if (!rawValue) {
+        return null;
+    }
+    const trimmed = rawValue.trim();
+    if (!trimmed) {
+        return null;
+    }
+    if (/^sips?:/i.test(trimmed)) {
+        return trimmed;
+    }
+    const referDomain = sipConfig?.referDomain || sipConfig?.domain || '';
+    if (referDomain) {
+        return `sip:${trimmed}@${referDomain}`;
+    }
+    return `sip:${trimmed}`;
 }
 
 function updateSipStatus(status = 'offline', metaText = '') {
@@ -408,6 +607,7 @@ async function initSipStack() {
     state.sipClient.on('transport', handleSipTransport);
     state.sipClient.on('invite', handleSipInvite);
     state.sipClient.on('sessionState', handleSipSessionState);
+    state.sipClient.on('refer', handleSipRefer);
     state.sipClient.on('error', () => {
         logEvent('SIP stack error');
         updateSipStatus('error', 'SIP stack error');
@@ -489,15 +689,49 @@ function handleSipSessionState(event) {
             attachSipMedia(event.invitation);
             updateCallStatus('Live SIP call', `Connected to ${state.currentTarget}`, 'active');
             logEvent('SIP call established');
+            setReferButtonState(true);
             break;
         case 'terminated':
             logEvent('SIP call ended');
             updateCallStatus('SIP call ended', '', 'ended');
             resetSipSession();
+            setReferButtonState(false);
             break;
         default:
             break;
     }
+}
+
+function handleSipRefer(event) {
+    if (!event?.referral) {
+        return;
+    }
+    const referTo = event.referral.referTo?.uri?.toString?.() || 'unknown target';
+    logEvent(`SIP REFER received: ${referTo}`);
+    updateCallStatus('Transfer requested', `Following REFER to ${referTo}`, 'pending');
+
+    const inviterOptions = {
+        sessionDescriptionHandlerOptions: {
+            constraints: {
+                audio: true,
+                video: true,
+            },
+            peerConnectionConfiguration: {
+                iceServers,
+            },
+        },
+    };
+
+    event.referral
+        .accept()
+        .then(() => event.referral.makeInviter(inviterOptions).invite())
+        .then(() => {
+            logEvent('REFER followed successfully');
+        })
+        .catch((error) => {
+            console.error('Unable to follow REFER', error);
+            updateCallStatus('Transfer failed', `Unable to follow REFER to ${referTo}`, 'pending');
+        });
 }
 
 async function answerSipInvitation(invitation) {
@@ -579,6 +813,42 @@ async function terminateSipSession() {
         console.warn('SIP hangup failed', error);
     } finally {
         resetSipSession(false);
+    }
+}
+
+async function sendSipRefer() {
+    if (!state.sipSession) {
+        updateCallStatus('No SIP session', 'Establish SIP call before transferring');
+        return;
+    }
+    const referTarget = buildReferTarget(els.dialInput.value);
+    if (!referTarget) {
+        updateCallStatus('Refer target required', 'Provide a dial target before transferring');
+        return;
+    }
+
+    try {
+        state.sipReferInProgress = true;
+        setReferButtonState(false);
+        updateCallStatus('Transferring call', `REFER to ${referTarget}`, 'pending');
+        await state.sipSession.refer(referTarget, {
+            sessionDescriptionHandlerOptions: {
+                constraints: {
+                    audio: true,
+                    video: true,
+                },
+                peerConnectionConfiguration: {
+                    iceServers,
+                },
+            },
+        });
+        logEvent(`Sent SIP REFER to ${referTarget}`);
+    } catch (error) {
+        console.error('SIP REFER failed', error);
+        updateCallStatus('Transfer failed', 'REFER request rejected or failed');
+    } finally {
+        state.sipReferInProgress = false;
+        setReferButtonState(Boolean(state.sipSession));
     }
 }
 
@@ -708,6 +978,7 @@ async function preparePeer(role) {
     return peer;
 }
 
+// Initiate a WebRTC session for a manually dialed target or “share code only” workflow.
 async function startCall() {
     if (state.isSipCall) {
         updateCallStatus('SIP call in progress', 'End SIP call before starting a session');
@@ -759,6 +1030,10 @@ async function startCall() {
 async function joinCall() {
     if (state.isSipCall) {
         updateCallStatus('SIP call active', 'Hang up before joining another call');
+        return;
+    }
+    if (!els.joinCodeInput) {
+        updateCallStatus('Join disabled', 'No join input available');
         return;
     }
     const code = clampCode(els.joinCodeInput.value || '');
@@ -958,7 +1233,9 @@ function resetSession(clearCode = true) {
         setCallCode(null);
     }
 
-    els.joinCodeInput.value = '';
+    if (els.joinCodeInput) {
+        els.joinCodeInput.value = '';
+    }
     els.hangupBtn.disabled = true;
     setSessionStateLabel('Idle');
     if (!state.isRecording) {
@@ -967,6 +1244,7 @@ function resetSession(clearCode = true) {
     if (!els.dialInput.value.trim()) {
         setDialTargetLabel('None');
     }
+    setReferButtonState(false);
 
     if (state.localStream) {
         els.localVideo.srcObject = state.localStream;
@@ -1160,11 +1438,11 @@ async function startDemoCall() {
 
     await hangUp();
 
-        try {
-            updateCallStatus('Starting demo call...', 'Loopback test', 'pending');
-            state.isDemo = true;
-            state.currentTarget = 'Demo loopback';
-            startDemoAudio();
+    try {
+        updateCallStatus('Starting demo call...', 'Loopback test', 'pending');
+        state.isDemo = true;
+        state.currentTarget = 'Demo loopback';
+        startDemoAudio();
 
         const pc1 = new RTCPeerConnection({ iceServers });
         const pc2 = new RTCPeerConnection({ iceServers });
@@ -1249,6 +1527,8 @@ els.copyCodeBtn?.addEventListener('click', copyCallCode);
 els.themeToggleBtn?.addEventListener('click', toggleTheme);
 els.demoCallBtn?.addEventListener('click', startDemoCall);
 els.clearHistoryBtn?.addEventListener('click', clearCallHistory);
+els.referBtn?.addEventListener('click', sendSipRefer);
+els.sipLoginForm?.addEventListener('submit', handleSipLoginSubmit);
 initDialpad();
 initLocalMedia().catch(() => {
     // permission denied handled in initLocalMedia
@@ -1258,7 +1538,9 @@ setDialTargetLabel('None');
 setRecordingStateLabel('Off');
 setSessionStateLabel('Idle');
 initTheme();
+handleInitialDomainWarning();
 setUserPresence('online');
+setReferButtonState(false);
 if (hasSipStack()) {
     initSipStack();
 } else {

@@ -11,7 +11,14 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body>
-        <div id="call-app">
+        <div
+            id="call-app"
+            data-sip-login-endpoint="{{ route('sip.login') }}"
+            data-sbc-domain="{{ $sipDomain ?? '' }}"
+            data-domain-reachable="{{ $sipDomainReachable ? '1' : '0' }}"
+            data-domain-status="{{ $sipDomainStatus['code'] ?? 'unknown' }}"
+            data-domain-message="{{ $sipDomainStatus['message'] ?? '' }}"
+        >
             <div class="call-shell">
                 <header class="meeting-header">
                     <div class="meeting-meta">
@@ -126,6 +133,14 @@
                                 </span>
                                 <span class="label">Demo</span>
                             </button>
+                            <button type="button" class="toolbar-btn" id="referBtn" disabled>
+                                <span class="icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24">
+                                        <path d="M8.59 5.59 13.17 10H4a1 1 0 0 0 0 2h9.17l-4.58 4.41A1 1 0 0 0 10 18a1 1 0 0 0 .7-.29l6-6a1 1 0 0 0 0-1.42l-6-6A1 1 0 0 0 8.59 5.59Z" />
+                                    </svg>
+                                </span>
+                                <span class="label">Transfer</span>
+                            </button>
                             <button type="button" class="toolbar-btn toolbar-btn--danger" id="hangupBtn">
                                 <span class="icon" aria-hidden="true">
                                     <svg viewBox="0 0 24 24">
@@ -138,6 +153,32 @@
                     </section>
 
                     <aside class="control-sidebar">
+                        <div class="panel-card panel-card--warning" id="sipDomainWarning" @if ($sipDomainReachable) hidden @endif>
+                            <h3>
+                                @if (($sipDomainStatus['code'] ?? '') === 'missing')
+                                    SIP domain missing
+                                @else
+                                    SBC address unavailable
+                                @endif
+                            </h3>
+                            <p>{{ $sipDomainStatus['message'] ?? 'Unable to resolve SBC endpoint.' }}</p>
+                        </div>
+
+                        <div class="panel-card" id="sipLoginPanel">
+                            <h3>Jambonz login</h3>
+                            <p>Provide the email and SIP username that should register with <strong>{{ $sipDomain ?? 'sbc.jambonz.local' }}</strong>.</p>
+                            <form id="sipLoginForm" class="input-stack">
+                                <label for="sipEmailInput">Agent email</label>
+                                <input id="sipEmailInput" type="email" placeholder="agent@example.com" value="{{ $user->email }}" required>
+                                <label for="sipUsernameInput">SIP username</label>
+                                <input id="sipUsernameInput" type="text" placeholder="agent01" required>
+                                <button type="submit" class="btn-primary" id="sipLoginSubmitBtn">Connect to jambonz</button>
+                                <p class="sip-login-message" id="sipLoginMessage">
+                                    {{ $sipDomainStatus['message'] ?? 'Domain: ' . ($sipDomain ?? 'sbc.jambonz.local') }}
+                                </p>
+                            </form>
+                        </div>
+
                         <div class="panel-card">
                             <h3>Meeting details</h3>
                             <p>Set the dial target and monitor session info.</p>
