@@ -21,9 +21,13 @@ class CallController extends Controller
         return view('call.dashboard', [
             'user' => $request->user(),
             'sipConfig' => $this->sipConfig($request),
+<<<<<<< HEAD
             'sipDomain' => $sipDomain,
             'sipDomainReachable' => $sipDomainStatus['reachable'],
             'sipDomainStatus' => $sipDomainStatus,
+=======
+            'sipIdentity' => $this->sipIdentity($request),
+>>>>>>> 82fe0ffbc0b9f54471d0fc4c08a036652109cde3
         ]);
     }
 
@@ -187,13 +191,25 @@ class CallController extends Controller
 
     protected function sipConfig(Request $request, array $overrides = []): array
     {
+<<<<<<< HEAD
         $base = [
+=======
+        $username = (string) $request->session()->get('jambonz_sip_username');
+        $domain = (string) $request->session()->get('jambonz_sip_domain');
+        $password = (string) $request->session()->get('jambonz_sip_password');
+        $username = $username !== '' ? $username : null;
+        $domain = $domain !== '' ? $domain : null;
+        $password = $password !== '' ? $password : null;
+
+        return [
+>>>>>>> 82fe0ffbc0b9f54471d0fc4c08a036652109cde3
             'wssServer' => config('jambonz.sip_wss_server'),
-            'domain' => config('jambonz.sip_domain'),
-            'username' => config('jambonz.sip_username'),
-            'password' => config('jambonz.sip_password'),
-            'displayName' => config('jambonz.sip_display_name') ?: ($request->user()->name ?: $request->user()->email),
-            'uri' => config('jambonz.webrtc_uri'),
+            'domain' => $domain,
+            'username' => $username,
+            'password' => $password,
+            'displayName' => $request->user()?->name ?: $username,
+            'uri' => $username && $domain ? sprintf('sip:%s@%s', $username, $domain) : null,
+            'referDomain' => $domain,
         ];
 
         $filteredOverrides = array_filter($overrides, static fn ($value) => $value !== null);
@@ -250,5 +266,16 @@ class CallController extends Controller
             'code' => 'unresolved',
             'message' => __('Address not found for :domain', ['domain' => $domain]),
         ];
+    }
+
+    protected function sipIdentity(Request $request): ?string
+    {
+        $username = (string) $request->session()->get('jambonz_sip_username');
+        $domain = (string) $request->session()->get('jambonz_sip_domain');
+        if ($username === '' || $domain === '') {
+            return null;
+        }
+
+        return sprintf('%s@%s', $username, $domain);
     }
 }

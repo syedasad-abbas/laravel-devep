@@ -16,23 +16,19 @@
             <form method="POST" action="{{ route('login.submit') }}" class="auth-form">
                 @csrf
                 <label class="auth-field">
-                    <span>Email</span>
-                    <input type="email" name="email" value="{{ old('email') }}" required autofocus>
+                    <span>SIP identity (username@domain:port)</span>
+                    <input type="text" name="identity" value="{{ old('identity') }}" placeholder="asad@jambonz.local:5060" required autofocus>
                 </label>
                 <label class="auth-field">
                     <span>Password</span>
                     <input type="password" name="password" required>
                 </label>
-                @error('email')
+                @error('identity')
                     <div class="auth-error">{{ $message }}</div>
                 @enderror
                 @error('password')
                     <div class="auth-error">{{ $message }}</div>
                 @enderror
-                <label class="remember-field">
-                    <input type="checkbox" name="remember" value="1">
-                    <span>Remember me on this device</span>
-                </label>
                 <button type="submit" class="btn-primary">Login</button>
             </form>
             <div class="auth-footer">
