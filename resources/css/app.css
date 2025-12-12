@@ -325,12 +325,192 @@ textarea:focus-visible {
 }
 
 #call-app {
-    max-width: 1200px;
+    max-width: 1300px;
     margin: 0 auto;
     padding: 2.5rem 1.5rem 4rem;
 }
 
-.call-shell {
+.top-banner {
+    max-width: 1300px;
+    margin: 0 auto 1.5rem;
+    text-align: left;
+}
+
+.top-banner__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.top-banner h1 {
+    margin: 0;
+    font-size: 2rem;
+}
+
+.top-banner h2 {
+    margin: 0.4rem 0;
+    font-size: 1.2rem;
+    color: var(--text-muted);
+}
+
+.top-banner__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.top-banner__actions form {
+    margin: 0;
+}
+
+.online-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.8rem;
+    border-radius: 999px;
+    border: 1px solid rgba(59, 130, 246, 0.4);
+}
+
+.top-banner hr {
+    margin-top: 1rem;
+    border: none;
+    border-top: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.console-shell {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr);
+    gap: 1.5rem;
+}
+
+.left-sidebar {
+    background: rgba(7, 11, 25, 0.92);
+    border-radius: 2rem;
+    border: 1px solid rgba(59, 130, 246, 0.15);
+    padding: 2rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+}
+
+.square-main {
+    background: rgba(10, 18, 36, 0.95);
+    border-radius: 2rem;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    box-shadow: 0 30px 80px rgba(2, 6, 23, 0.65);
+    padding: 2.5rem;
+}
+
+.square-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.header-title {
+    text-align: center;
+    flex: 1;
+}
+
+.header-title p {
+    margin: 0;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+}
+
+.header-title h1 {
+    margin: 0.2rem 0 0;
+    font-size: 1.65rem;
+}
+
+.header-presence {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.9rem;
+    border-radius: 999px;
+    border: 1px solid rgba(59, 130, 246, 0.35);
+    background: rgba(15, 23, 42, 0.6);
+}
+
+.square-content {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.5rem;
+}
+
+@media (max-width: 960px) {
+    .square-content {
+        grid-template-columns: 1fr;
+    }
+}
+
+.flat-block {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.flat-block:last-child {
+    border-bottom: none;
+}
+
+.flat-block h2 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.block-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+*** End Patch
+
+.controls-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.full-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.create-user {
+    border-top: 1px solid rgba(148, 163, 184, 0.15);
+    padding-top: 1rem;
+}
+
+.create-user-block {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.console-shell {
     background: rgba(10, 18, 36, 0.92);
     border-radius: 2rem;
     border: 1px solid rgba(59, 130, 246, 0.15);
@@ -338,64 +518,102 @@ textarea:focus-visible {
     padding: 2.5rem;
 }
 
-.meeting-header {
+.console-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 1rem;
+    flex-wrap: wrap;
 }
 
-.meeting-meta {
+.header-left,
+.header-right {
     display: flex;
     align-items: center;
-    gap: 0.8rem;
+    gap: 0.75rem;
 }
 
-.meeting-meta h1 {
+.header-center {
+    text-align: center;
+    flex: 1;
+    min-width: 240px;
+}
+
+.header-center h1 {
     margin: 0;
-    font-size: 1.4rem;
+    font-size: 1.8rem;
 }
 
-.meeting-meta p {
+.sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-radius: 1.2rem;
+    background: rgba(59, 103, 246, 0.12);
+    border: 1px solid rgba(59, 130, 246, 0.35);
+}
+
+.logo-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--success);
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.7);
+    display: inline-flex;
+}
+
+.sidebar-section h3 {
     margin: 0;
-    color: var(--text-muted);
-    font-size: 0.95rem;
+    font-size: 1.05rem;
 }
 
-.user-presence {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    color: var(--text-muted);
+.sidebar-section + .sidebar-section {
+    border-top: 1px solid rgba(148, 163, 184, 0.15);
+    padding-top: 1.25rem;
 }
 
-.sip-status-card {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.65rem;
-    padding: 0.65rem 1rem;
-    border-radius: 0.85rem;
-    border: 1px solid rgba(59, 130, 246, 0.3);
-    background: rgba(15, 23, 42, 0.65);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
-    min-width: 220px;
-}
-
-.sip-status-copy {
+.admin-card {
+    margin-top: 1rem;
+    padding: 1rem;
+    border-radius: 1.2rem;
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(59, 130, 246, 0.2);
     display: flex;
     flex-direction: column;
-    line-height: 1.2;
+    gap: 0.5rem;
 }
 
-.sip-status-label {
-    font-weight: 600;
-    color: var(--text-primary);
-    font-size: 0.95rem;
+.admin-card__presence {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
 }
 
-.sip-status-meta {
+.admin-card__presence .logo-dot {
+    width: 16px;
+    height: 16px;
+}
+
+.admin-card__status {
+    margin: 0;
     font-size: 0.85rem;
     color: var(--text-muted);
+}
+
+.welcome-text {
+    margin: 0;
+    color: var(--text-muted);
+}
+
+.presence-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1rem;
+    border-radius: 999px;
+    border: 1px solid rgba(59, 130, 246, 0.35);
+    background: rgba(15, 23, 42, 0.65);
 }
 
 .presence-name {
@@ -403,21 +621,121 @@ textarea:focus-visible {
     font-weight: 600;
 }
 
-.meeting-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-}
-
-.meeting-actions form {
-    margin: 0;
-}
-
-.meeting-body {
+.console-body {
     margin-top: 2rem;
     display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(320px, 0.9fr);
-    gap: 1.75rem;
+    grid-template-columns: 260px minmax(0, 1fr) 300px;
+    gap: 1.5rem;
+}
+
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.sidebar-left {
+    background: rgba(7, 11, 25, 0.9);
+    border: 1px solid rgba(59, 130, 246, 0.12);
+    border-radius: 1.8rem;
+    padding: 1.5rem 1.2rem;
+    box-shadow: 0 18px 35px rgba(2, 6, 23, 0.75);
+}
+
+.online-list {
+    list-style: none;
+    margin: 1rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.online-list__item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 0.8rem;
+    border-radius: 0.9rem;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(59, 130, 246, 0.12);
+    font-size: 0.95rem;
+}
+
+.online-list__item--current {
+    border-color: rgba(34, 197, 94, 0.5);
+    background: rgba(34, 197, 94, 0.15);
+}
+
+.online-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--success);
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+}
+
+.badge-admin {
+    margin-left: auto;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.2rem 0.5rem;
+    border-radius: 999px;
+    background: rgba(59, 130, 246, 0.25);
+    border: 1px solid rgba(59, 130, 246, 0.4);
+    color: #bfdbfe;
+}
+
+.dialer-block input {
+    border: 1px solid rgba(59, 130, 246, 0.35);
+    border-radius: 1rem;
+    background: rgba(7, 17, 34, 0.7);
+    color: var(--text-primary);
+    padding: 1rem 1.2rem;
+    font-size: 1.4rem;
+    letter-spacing: 0.04em;
+}
+
+.dialer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.call-actions {
+    display: flex;
+    gap: 0.8rem;
+    margin: 1rem 0;
+    flex-wrap: wrap;
+}
+
+.checkbox-field {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.checkbox-field input {
+    width: 16px;
+    height: 16px;
+}
+
+.sidebar-right .panel-card + .panel-card {
+    margin-top: 1rem;
+}
+
+.alert {
+    margin-top: 1rem;
+    padding: 0.9rem 1.1rem;
+    border-radius: 1rem;
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid rgba(34, 197, 94, 0.45);
+    color: #bbf7d0;
+    font-weight: 600;
 }
 
 .stage {
@@ -786,97 +1104,43 @@ textarea:focus-visible {
     position: relative;
 }
 
-.dialpad-toggle {
-    margin-top: 1rem;
-    border-radius: 1rem;
-    padding: 0.7rem 1rem;
-    border: 1px solid rgba(59, 130, 246, 0.25);
-    background: rgba(10, 18, 36, 0.65);
-    color: var(--text-primary);
-    width: 100%;
-    justify-content: center;
+.dialpad-grid {
+    margin-top: 1.25rem;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
 }
 
-html[data-theme='light'] .dialpad-toggle {
-    background: rgba(37, 99, 235, 0.08);
-    border-color: rgba(37, 99, 235, 0.2);
-    color: #0f172a;
-}
-
-.dialpad-dropdown {
-    margin-top: 1rem;
+.dialpad-key {
     border-radius: 1.5rem;
-    border: 1px solid rgba(148, 163, 184, 0.25);
-    background: rgba(10, 15, 28, 0.95);
-    box-shadow: 0 25px 60px rgba(2, 6, 23, 0.75);
-    padding: 1rem;
-    display: none;
-}
-
-.dialpad-dropdown.open {
-    display: block;
-    animation: fadeIn 0.2s ease;
-}
-
-html[data-theme='light'] .dialpad-dropdown {
-    background: #ffffff;
-    border-color: rgba(15, 23, 42, 0.08);
-    box-shadow: 0 20px 45px rgba(15, 23, 42, 0.2);
-}
-
-.dialpad-dropdown::before {
-    content: '';
-    position: absolute;
-    top: calc(100% - 1px);
-    left: 50%;
-    transform: translateX(-50%);
-    width: 40%;
-    height: 6px;
-    border-radius: 999px;
-    background: rgba(148, 163, 184, 0.25);
-    display: none;
-}
-
-.dialpad-select {
-    margin-top: 1rem;
-    width: 100%;
-    border-radius: 1.2rem;
-    border: 1px solid rgba(148, 163, 184, 0.4);
-    background: rgba(8, 13, 26, 0.9);
-    color: var(--text-primary);
-    padding: 0.85rem 1rem;
-    font-size: 1.1rem;
-    appearance: none;
-    background-image: linear-gradient(45deg, transparent 50%, rgba(255, 255, 255, 0.5) 50%),
-        linear-gradient(135deg, rgba(255, 255, 255, 0.5) 50%, transparent 50%);
-    background-position: calc(100% - 25px) calc(50% - 6px), calc(100% - 15px) calc(50% - 6px);
-    background-size: 10px 10px, 10px 10px;
-    background-repeat: no-repeat;
-}
-
-.dialpad-select option {
-    font-size: 1rem;
-    padding: 0.4rem;
-}
-
-.dialpad-select:focus {
-    outline: none;
-    border-color: rgba(59, 130, 246, 0.7);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
-}
-
-.dialpad-actions {
-    margin-top: 1rem;
+    aspect-ratio: 1 / 1;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    background: radial-gradient(circle at top, rgba(59, 130, 246, 0.35), rgba(15, 23, 42, 0.9));
+    color: #e2e8f0;
+    font-size: 1.75rem;
+    font-weight: 700;
     display: flex;
-    justify-content: flex-end;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05), 0 15px 35px rgba(15, 23, 42, 0.65);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-html[data-theme='light'] .dialpad-select {
-    background: #ffffff;
+.dialpad-key .digit {
+    font-size: 1.85rem;
+    letter-spacing: 0.08em;
+}
+
+.dialpad-key:active {
+    transform: scale(0.96);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 12px 25px rgba(15, 23, 42, 0.6);
+}
+
+html[data-theme='light'] .dialpad-key {
+    background: radial-gradient(circle at top, rgba(37, 99, 235, 0.12), #fff);
     color: #0f172a;
     border-color: rgba(37, 99, 235, 0.3);
-    background-image: linear-gradient(45deg, transparent 50%, rgba(37, 99, 235, 0.5) 50%),
-        linear-gradient(135deg, rgba(37, 99, 235, 0.5) 50%, transparent 50%);
+    box-shadow: 0 16px 30px rgba(15, 23, 42, 0.12);
 }
 
 @keyframes fadeIn {
@@ -908,7 +1172,7 @@ html[data-theme='light'] .theme-toggle {
     border-color: rgba(37, 99, 235, 0.2);
 }
 
-html[data-theme='light'] .call-shell {
+html[data-theme='light'] .console-shell {
     background: rgba(255, 255, 255, 0.92);
     border-color: rgba(15, 23, 42, 0.08);
     box-shadow: 0 20px 50px rgba(15, 23, 42, 0.15);
@@ -947,6 +1211,12 @@ html[data-theme='light'] .chip {
 
 .status-bar strong {
     color: var(--text-primary);
+}
+
+.status-bar--flat {
+    border: none;
+    padding-left: 0;
+    padding-right: 0;
 }
 
 .recording-led {
@@ -1024,68 +1294,22 @@ html[data-theme='light'] .chip {
 }
 
 @media (max-width: 960px) {
-    .call-grid {
+    .square-grid {
         grid-template-columns: 1fr;
     }
 }
 
 @media (max-width: 640px) {
-    .call-shell {
+    .console-shell {
         padding: 1.25rem;
     }
 
-    .call-header {
+    .console-header {
         flex-direction: column;
         align-items: flex-start;
     }
 
-    .action-buttons {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+    .call-actions {
+        flex-direction: column;
     }
-}
-.dialpad-select {
-    margin-top: 1rem;
-    width: 100%;
-    border-radius: 1.2rem;
-    border: 1px solid rgba(148, 163, 184, 0.4);
-    background: rgba(8, 13, 26, 0.9);
-    color: var(--text-primary);
-    padding: 0.85rem 1rem;
-    font-size: 1.1rem;
-    appearance: none;
-    background-image: linear-gradient(45deg, transparent 50%, rgba(255, 255, 255, 0.5) 50%),
-        linear-gradient(135deg, rgba(255, 255, 255, 0.5) 50%, transparent 50%);
-    background-position: calc(100% - 25px) calc(50% - 6px), calc(100% - 15px) calc(50% - 6px);
-    background-size: 10px 10px, 10px 10px;
-    background-repeat: no-repeat;
-}
-
-.dialpad-select option {
-    font-size: 1rem;
-    padding: 0.4rem;
-}
-
-.dialpad-select:focus {
-    outline: none;
-    border-color: rgba(59, 130, 246, 0.7);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
-}
-
-.dialpad-actions {
-    margin-top: 1rem;
-    display: flex;
-    justify-content: flex-end;
-}
-.dialpad-actions {
-    margin-top: 1rem;
-    display: flex;
-    justify-content: flex-end;
-}
-
-html[data-theme='light'] .dialpad-select {
-    background: #ffffff;
-    color: #0f172a;
-    border-color: rgba(37, 99, 235, 0.3);
-    background-image: linear-gradient(45deg, transparent 50%, rgba(37, 99, 235, 0.5) 50%),
-        linear-gradient(135deg, rgba(37, 99, 235, 0.5) 50%, transparent 50%);
 }

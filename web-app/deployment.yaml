@@ -24,24 +24,6 @@ spec:
               value: production
             - name: APP_DEBUG
               value: 'false'
-<<<<<<< HEAD
-=======
-            - name: DB_CONNECTION
-              value: mysql
-            - name: DB_HOST
-              value: mysql.jambonz
-            - name: DB_PORT
-              value: '3306'
-            - name: DB_DATABASE
-              value: jambones
-            - name: DB_USERNAME
-              value: jambones
-            - name: DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: jambonz-secrets
-                  key: MYSQL_PASSWORD
->>>>>>> 82fe0ffbc0b9f54471d0fc4c08a036652109cde3
             - name: MYSQL_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -64,19 +46,11 @@ spec:
             periodSeconds: 20
           volumeMounts:
             - name: laravel-source
-<<<<<<< HEAD
               mountPath: /app
       volumes:
         - name: laravel-source
           hostPath:
             path: /home/tpl/laravel-devep
-=======
-              mountPath: /var/www/html
-      volumes:
-        - name: laravel-source
-          hostPath:
-            path: /home/asad/laravel-devep
->>>>>>> 82fe0ffbc0b9f54471d0fc4c08a036652109cde3
             type: Directory
 ---
 apiVersion: v1
@@ -91,9 +65,5 @@ spec:
     app: laravel-web-app
   ports:
     - name: http
-<<<<<<< HEAD
       port: 5010
-=======
-      port: 8000
->>>>>>> 82fe0ffbc0b9f54471d0fc4c08a036652109cde3
       targetPort: http

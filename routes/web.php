@@ -13,7 +13,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
     Route::get('/call', [CallController::class, 'dashboard'])->name('call.dashboard');
-    Route::post('/sip-login', [CallController::class, 'sipLogin'])->name('sip.login');
+    Route::post('/users', [CallController::class, 'storeUser'])->name('admin.users.store');
 
     Route::post('/call-sessions', [CallController::class, 'createSession'])->name('call.sessions.create');
     Route::get('/call-sessions/{code}', [CallController::class, 'showSession'])->name('call.sessions.show');

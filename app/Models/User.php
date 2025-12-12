@@ -13,16 +13,6 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     /**
-     * The table and primary key metadata are overridden because the users table
-     * does not follow Laravel's defaults.
-     */
-    protected $table = 'users';
-    protected $primaryKey = 'user_sid';
-    protected $keyType = 'string';
-    public $incrementing = false;
-    public $timestamps = false;
-
-    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
@@ -30,7 +20,8 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
-        'hashed_password',
+        'password',
+        'is_admin',
     ];
 
     /**
@@ -39,16 +30,9 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $hidden = [
-        'hashed_password',
+        'password',
+        'remember_token',
     ];
-
-    /**
-     * Tell the auth layer which column stores the password hash.
-     */
-    public function getAuthPassword()
-    {
-        return $this->hashed_password;
-    }
 
     /**
      * Get the attributes that should be cast.
@@ -59,6 +43,8 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+            'is_admin' => 'boolean',
         ];
     }
 }

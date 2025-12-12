@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\CallSession;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -15,19 +18,14 @@ class CallController extends Controller
 {
     public function dashboard(Request $request): View
     {
-        $sipDomain = config('jambonz.sip_domain');
-        $sipDomainStatus = $this->sipDomainStatus($sipDomain);
+        $user = $request->user();
 
         return view('call.dashboard', [
-            'user' => $request->user(),
-            'sipConfig' => $this->sipConfig($request),
-<<<<<<< HEAD
-            'sipDomain' => $sipDomain,
-            'sipDomainReachable' => $sipDomainStatus['reachable'],
-            'sipDomainStatus' => $sipDomainStatus,
-=======
-            'sipIdentity' => $this->sipIdentity($request),
->>>>>>> 82fe0ffbc0b9f54471d0fc4c08a036652109cde3
+            'user' => $user,
+            'callLaunchUrl' => config('call.launch_url'),
+            'isAdmin' => (bool) $user?->is_admin,
+            'onlineUsers' => User::orderBy('name')
+                ->get(['id', 'name', 'email', 'is_admin']),
         ]);
     }
 
@@ -122,43 +120,27 @@ class CallController extends Controller
         return response()->json($this->formatSession($session->refresh()));
     }
 
-    public function sipLogin(Request $request): JsonResponse
+    public function storeUser(Request $request): RedirectResponse
     {
-        // Validate the agent-provided login credentials that will be forwarded to jambonz.
+        abort_unless($request->user()?->is_admin, 403);
+
         $data = $request->validate([
-            'email' => ['required', 'email'],
-            'username' => ['required', 'string', 'max:80'],
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'password' => ['required', 'string', 'min:8'],
+            'is_admin' => ['sometimes', 'boolean'],
         ]);
 
-        $domain = config('jambonz.sip_domain');
-        $domainStatus = $this->sipDomainStatus($domain);
-        // Fail early with a descriptive message when DNS or SBC configuration is broken.
-        if (!$domainStatus['reachable']) {
-            $message = $domainStatus['message'];
-
-            return response()->json([
-                'message' => $message,
-                'errors' => [
-                    'domain' => [$message],
-                ],
-            ], 422);
-        }
-
-        $uri = sprintf('sip:%s@%s', $data['username'], $domain);
-        $displayBase = $request->user()->name ?: $data['username'];
-        $displayName = sprintf('%s <%s>', $displayBase, $data['email']);
-
-        $config = $this->sipConfig($request, [
-            'username' => $data['username'],
-            'displayName' => $displayName,
-            'uri' => $uri,
-            'contact_email' => $data['email'],
+        User::create([
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'password' => Hash::make($data['password']),
+            'is_admin' => (bool) ($data['is_admin'] ?? false),
         ]);
 
-        return response()->json([
-            'config' => $config,
-            'message' => __('Registration request sent to jambonz.'),
-        ]);
+        return redirect()
+            ->route('call.dashboard')
+            ->with('status', __('User :email created successfully.', ['email' => $data['email']]));
     }
 
     protected function findSession(string $code): CallSession
@@ -189,93 +171,4 @@ class CallController extends Controller
         ];
     }
 
-    protected function sipConfig(Request $request, array $overrides = []): array
-    {
-<<<<<<< HEAD
-        $base = [
-=======
-        $username = (string) $request->session()->get('jambonz_sip_username');
-        $domain = (string) $request->session()->get('jambonz_sip_domain');
-        $password = (string) $request->session()->get('jambonz_sip_password');
-        $username = $username !== '' ? $username : null;
-        $domain = $domain !== '' ? $domain : null;
-        $password = $password !== '' ? $password : null;
-
-        return [
->>>>>>> 82fe0ffbc0b9f54471d0fc4c08a036652109cde3
-            'wssServer' => config('jambonz.sip_wss_server'),
-            'domain' => $domain,
-            'username' => $username,
-            'password' => $password,
-            'displayName' => $request->user()?->name ?: $username,
-            'uri' => $username && $domain ? sprintf('sip:%s@%s', $username, $domain) : null,
-            'referDomain' => $domain,
-        ];
-
-        $filteredOverrides = array_filter($overrides, static fn ($value) => $value !== null);
-
-        return array_merge($base, $filteredOverrides);
-    }
-
-    protected function sipDomainStatus(?string $domain): array
-    {
-        if (!$domain) {
-            return [
-                'reachable' => false,
-                'code' => 'missing',
-                'message' => __('SIP domain not configured. Update env settings and reload the page.'),
-            ];
-        }
-
-        if (filter_var($domain, FILTER_VALIDATE_IP)) {
-            return [
-                'reachable' => true,
-                'code' => 'ip',
-                'message' => __('SIP domain resolves to a static IP.'),
-            ];
-        }
-
-        try {
-            if (function_exists('checkdnsrr') && (checkdnsrr($domain, 'A') || checkdnsrr($domain, 'AAAA'))) {
-                return [
-                    'reachable' => true,
-                    'code' => 'dns',
-                    'message' => __('SIP domain resolved successfully.'),
-                ];
-            }
-
-            $resolved = gethostbyname($domain);
-            if ($resolved !== false && $resolved !== $domain) {
-                return [
-                    'reachable' => true,
-                    'code' => 'dns',
-                    'message' => __('SIP domain resolved successfully.'),
-                ];
-            }
-        } catch (\Throwable $exception) {
-            report($exception);
-            return [
-                'reachable' => false,
-                'code' => 'error',
-                'message' => __('Unable to verify SIP domain DNS records.'),
-            ];
-        }
-
-        return [
-            'reachable' => false,
-            'code' => 'unresolved',
-            'message' => __('Address not found for :domain', ['domain' => $domain]),
-        ];
-    }
-
-    protected function sipIdentity(Request $request): ?string
-    {
-        $username = (string) $request->session()->get('jambonz_sip_username');
-        $domain = (string) $request->session()->get('jambonz_sip_domain');
-        if ($username === '' || $domain === '') {
-            return null;
-        }
-
-        return sprintf('%s@%s', $username, $domain);
-    }
 }
