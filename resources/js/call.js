@@ -61,6 +61,8 @@
         try {
             const url = new URL(base, window.location.origin);
             if (target) {
+                const trimmedPath = url.pathname.replace(/\/+$/, '');
+                url.pathname = `${trimmedPath}/${encodeURIComponent(target)}` || `/${encodeURIComponent(target)}`;
                 url.searchParams.set('dial', target);
             } else {
                 url.searchParams.delete('dial');
